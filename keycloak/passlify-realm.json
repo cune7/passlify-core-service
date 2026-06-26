@@ -1,0 +1,69 @@
+{
+  "realm": "passlify",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "accessTokenLifespan": 3600,
+  "roles": {
+    "realm": [
+      { "name": "ORGANIZER", "description": "Manage own events and ticket types" },
+      { "name": "OPERATOR", "description": "Scan tickets at the gate" },
+      { "name": "ADMIN", "description": "Platform administrator" }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "passlify-client",
+      "name": "Passlify client",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "redirectUris": ["*"],
+      "webOrigins": ["*"],
+      "attributes": {
+        "post.logout.redirect.uris": "+"
+      }
+    }
+  ],
+  "users": [
+    {
+      "username": "organizer1",
+      "enabled": true,
+      "email": "organizer1@passlify.rs",
+      "emailVerified": true,
+      "firstName": "Olga",
+      "lastName": "Organizer",
+      "credentials": [
+        { "type": "password", "value": "password", "temporary": false }
+      ],
+      "realmRoles": ["ORGANIZER"]
+    },
+    {
+      "username": "operator1",
+      "enabled": true,
+      "email": "operator1@passlify.rs",
+      "emailVerified": true,
+      "firstName": "Ozren",
+      "lastName": "Operator",
+      "credentials": [
+        { "type": "password", "value": "password", "temporary": false }
+      ],
+      "realmRoles": ["OPERATOR"]
+    },
+    {
+      "username": "admin1",
+      "enabled": true,
+      "email": "admin1@passlify.rs",
+      "emailVerified": true,
+      "firstName": "Ada",
+      "lastName": "Admin",
+      "credentials": [
+        { "type": "password", "value": "password", "temporary": false }
+      ],
+      "realmRoles": ["ADMIN"]
+    }
+  ]
+}

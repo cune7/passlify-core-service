@@ -1,0 +1,56 @@
+# Local infra for passlify-core-service.
+# Start with:  docker compose up -d
+# Then run the app:  ./mvnw spring-boot:run   (it connects to these on localhost)
+#
+# Services:
+#   postgres  :5432  db/user/pass = passlify / passlify / passlifypassword
+#   keycloak  :8080  realm 'passlify' auto-imported (roles + test users below)
+#   mailpit   :1025 (SMTP)  + :8025 (web UI at http://localhost:8025)
+#
+# Keycloak admin console: http://localhost:8080  (admin / admin)
+# Test users (all password 'password', client 'passlify-client', direct access grant):
+#   organizer1 → ORGANIZER, operator1 → OPERATOR, admin1 → ADMIN
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: passlify-postgres
+    environment:
+      POSTGRES_DB: passlify
+      POSTGRES_USER: passlify
+      POSTGRES_PASSWORD: passlifypassword
+    ports:
+      - "5432:5432"
+    volumes:
+      - passlify-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U passlify -d passlify"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    container_name: passlify-keycloak
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      KC_HEALTH_ENABLED: "true"
+      KC_HTTP_ENABLED: "true"
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./keycloak/passlify-realm.json:/opt/keycloak/data/import/passlify-realm.json:ro
+
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: passlify-mailpit
+    ports:
+      - "1025:1025"   # SMTP (matches spring.mail.port default)
+      - "8025:8025"   # web UI
+    environment:
+      MP_SMTP_AUTH_ALLOW_INSECURE: "true"
+
+volumes:
+  passlify-pgdata:

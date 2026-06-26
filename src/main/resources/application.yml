@@ -1,0 +1,53 @@
+spring:
+  application:
+    name: passlify-core-service
+  datasource:
+    url: jdbc:postgresql://${DATABASE_HOST:localhost}:${DATABASE_PORT:5432}/${DATABASE_NAME:passlify}
+    username: ${DATABASE_USER:passlify}
+    password: ${DATABASE_PASSWORD:passlifypassword}
+  jpa:
+    hibernate:
+      ddl-auto: validate          # Flyway owns the schema; never 'update' in real envs
+    open-in-view: false
+    properties:
+      hibernate.jdbc.time_zone: UTC
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # Keycloak realm 'passlify'. Override per environment.
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8080/realms/passlify}
+  mail:
+    host: ${MAIL_HOST:localhost}
+    port: ${MAIL_PORT:1025}          # smtp4dev / mailpit for local dev
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail.smtp.auth: ${MAIL_AUTH:false}
+      mail.smtp.starttls.enable: ${MAIL_STARTTLS:false}
+
+server:
+  port: ${PORT:8081}              # 8080 is taken by Keycloak locally
+
+passlify:
+  # Default currency for new events when the organizer doesn't pick one (Serbia-first).
+  default-currency: ${PASSLIFY_DEFAULT_CURRENCY:RSD}
+  # HMAC key for signing ticket QR tokens (used from the issuance slice onward).
+  qr-secret: ${PASSLIFY_QR_SECRET:dev-only-change-me-min-32-bytes-secret!!}
+  base-url: ${APP_BASE_URL:http://localhost:8081}
+  mail:
+    from: ${PASSLIFY_MAIL_FROM:tickets@passlify.rs}
+    enabled: ${PASSLIFY_MAIL_ENABLED:true}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true

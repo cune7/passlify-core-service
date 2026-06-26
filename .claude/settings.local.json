@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(java -version)",
+      "Bash(./mvnw -q -o compile)",
+      "Bash(./mvnw -q compile)",
+      "Bash(./mvnw -q test-compile)",
+      "Bash(echo \"EXIT: $?\")",
+      "Bash(docker info *)",
+      "Bash(timeout 180 ./mvnw -q test -Dtest=PasslifyCoreServiceApplicationTests)",
+      "Bash(timeout 240 ./mvnw test -Dtest=PasslifyCoreServiceApplicationTests)",
+      "Bash(./mvnw test *)",
+      "Bash(./mvnw -q dependency:tree)",
+      "Bash(./mvnw dependency:tree)"
+    ]
+  }
+}
