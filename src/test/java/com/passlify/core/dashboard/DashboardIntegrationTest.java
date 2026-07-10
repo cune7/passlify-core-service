@@ -12,6 +12,9 @@ import com.passlify.core.order.CheckoutService;
 import com.passlify.core.order.Order;
 import com.passlify.core.order.OrderStatus;
 import com.passlify.core.order.dto.CreateOrderRequest;
+import com.passlify.core.organization.OrganizationKind;
+import com.passlify.core.organization.OrganizationService;
+import com.passlify.core.organization.dto.UpsertOrganizationRequest;
 import com.passlify.core.payment.PaymentService;
 import com.passlify.core.payment.dto.PaymentSessionResponse;
 import com.passlify.core.support.AbstractIntegrationTest;
@@ -49,6 +52,9 @@ class DashboardIntegrationTest extends AbstractIntegrationTest {
     @Autowired
     DashboardService dashboardService;
 
+    @Autowired
+    OrganizationService organizationService;
+
     @AfterEach
     void clearAuth() {
         SecurityContextHolder.clearContext();
@@ -59,6 +65,10 @@ class DashboardIntegrationTest extends AbstractIntegrationTest {
         authenticate("organizer-1", "ORGANIZER");
         Event event = eventService.create(eventRequest());
         TicketType tt = ticketTypeService.create(event.getId(), ticketTypeRequest());
+        // Paid event → organizer must be a billable company before publishing.
+        organizationService.upsertMine(new UpsertOrganizationRequest(
+                OrganizationKind.COMPANY, "Org One d.o.o.", "Org One d.o.o.",
+                "123456789", "21234567", "Savska 5", "Belgrade", "11000", "RS", null));
         eventService.publish(event.getId());
 
         Order order = checkoutService.createOrder(orderFor(tt));

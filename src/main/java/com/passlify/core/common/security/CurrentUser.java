@@ -36,6 +36,37 @@ public class CurrentUser {
                 () -> new ApiException(ErrorCode.UNAUTHENTICATED, "Authentication required"));
     }
 
+    /** The {@code email} claim, if present. */
+    public Optional<String> email() {
+        return claim("email");
+    }
+
+    /**
+     * A human display name from the token, best-effort: the {@code name} claim, else
+     * {@code given_name}+{@code family_name}, else the email, else the subject.
+     */
+    public String displayName() {
+        return claim("name")
+                .or(() -> {
+                    String full = (claim("given_name").orElse("") + " "
+                            + claim("family_name").orElse("")).trim();
+                    return full.isBlank() ? Optional.empty() : Optional.of(full);
+                })
+                .or(this::email)
+                .orElseGet(this::requireSubject);
+    }
+
+    private Optional<String> claim(String name) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth instanceof JwtAuthenticationToken jwtAuth) {
+            Object value = jwtAuth.getToken().getClaim(name);
+            if (value != null && !value.toString().isBlank()) {
+                return Optional.of(value.toString());
+            }
+        }
+        return Optional.empty();
+    }
+
     public boolean hasRole(String role) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null) {

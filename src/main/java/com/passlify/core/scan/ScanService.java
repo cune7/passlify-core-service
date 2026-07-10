@@ -3,7 +3,6 @@ package com.passlify.core.scan;
 import com.passlify.core.common.error.ApiException;
 import com.passlify.core.common.error.ErrorCode;
 import com.passlify.core.event.Event;
-import com.passlify.core.event.EventRepository;
 import com.passlify.core.issuance.Ticket;
 import com.passlify.core.issuance.TicketRepository;
 import com.passlify.core.issuance.TicketStatus;
@@ -26,21 +25,20 @@ public class ScanService {
 
     private final TicketRepository tickets;
     private final TicketScanRepository scans;
-    private final EventRepository events;
     private final QrTokenService qrTokenService;
+    private final ScanValidator validator;
 
     public ScanService(TicketRepository tickets, TicketScanRepository scans,
-                       EventRepository events, QrTokenService qrTokenService) {
+                       QrTokenService qrTokenService, ScanValidator validator) {
         this.tickets = tickets;
         this.scans = scans;
-        this.events = events;
         this.qrTokenService = qrTokenService;
+        this.validator = validator;
     }
 
     @Transactional
     public ScanResponse scan(String qrToken, UUID eventId, String gate, String operator) {
-        Event event = events.findById(eventId)
-                .orElseThrow(() -> ApiException.notFound("Event not found: " + eventId));
+        Event event = validator.requireEvent(eventId);
 
         UUID ticketId;
         try {
@@ -87,9 +85,7 @@ public class ScanService {
 
     @Transactional(readOnly = true)
     public ScanSummaryResponse summary(UUID eventId) {
-        if (!events.existsById(eventId)) {
-            throw ApiException.notFound("Event not found: " + eventId);
-        }
+        validator.requireEvent(eventId);
         return new ScanSummaryResponse(
                 tickets.countByEventId(eventId),
                 tickets.countByEventIdAndStatus(eventId, TicketStatus.VALID),

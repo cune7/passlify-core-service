@@ -33,6 +33,8 @@ public class SecurityConfig {
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/actuator/health/**", "/actuator/info").permitAll()
+                        // API documentation (OpenAPI spec + Swagger UI).
+                        .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         // Public buyer-facing catalog (read-only).
                         .requestMatchers(HttpMethod.GET, "/api/v1/public/**").permitAll()
                         // Guest checkout: create an order and look it up by its (unguessable) id.

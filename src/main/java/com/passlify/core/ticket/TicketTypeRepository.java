@@ -19,6 +19,9 @@ public interface TicketTypeRepository extends JpaRepository<TicketType, UUID> {
 
     long countByEventIdAndActiveTrue(UUID eventId);
 
+    /** True if the event has any active, priced ticket type (i.e. it is a paid event). */
+    boolean existsByEventIdAndActiveTrueAndPriceMinorGreaterThan(UUID eventId, long priceMinor);
+
     /**
      * Atomic inventory reservation (no oversell). Increments {@code soldQuantity}
      * only if capacity remains. Returns the number of rows updated: 1 on success,

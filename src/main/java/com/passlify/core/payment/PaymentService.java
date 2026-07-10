@@ -13,7 +13,6 @@ import com.passlify.core.payment.gateway.PaymentGateway;
 import com.passlify.core.payment.gateway.PaymentGatewayRegistry;
 import com.passlify.core.ticket.TicketTypeRepository;
 import java.time.Instant;
-import java.util.Locale;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,30 +38,31 @@ public class PaymentService {
     private final TicketTypeRepository ticketTypes;
     private final PaymentGatewayRegistry gateways;
     private final TicketIssuanceService ticketIssuanceService;
+    private final PaymentValidator validator;
 
     public PaymentService(OrderRepository orders,
                           PaymentRepository payments,
                           WebhookEventRepository webhookEvents,
                           TicketTypeRepository ticketTypes,
                           PaymentGatewayRegistry gateways,
-                          TicketIssuanceService ticketIssuanceService) {
+                          TicketIssuanceService ticketIssuanceService,
+                          PaymentValidator validator) {
         this.orders = orders;
         this.payments = payments;
         this.webhookEvents = webhookEvents;
         this.ticketTypes = ticketTypes;
         this.gateways = gateways;
         this.ticketIssuanceService = ticketIssuanceService;
+        this.validator = validator;
     }
 
     @Transactional
     public PaymentSessionResponse createSession(UUID orderId, String successUrl, String cancelUrl) {
         Order order = orders.findById(orderId)
                 .orElseThrow(() -> ApiException.notFound("Order not found: " + orderId));
-        if (order.getStatus() != OrderStatus.PENDING_PAYMENT) {
-            throw ApiException.invalidState("Order is not awaiting payment (status " + order.getStatus() + ")");
-        }
+        validator.requireAwaitingPayment(order);
 
-        PaymentProvider provider = providerOf(order.getProvider());
+        PaymentProvider provider = validator.requireProvider(order.getProvider());
         PaymentGateway gateway = gateways.require(provider);
         CheckoutSession session = gateway.createSession(order, successUrl, cancelUrl);
 
@@ -87,7 +87,7 @@ public class PaymentService {
      */
     @Transactional
     public void handleWebhook(String providerName, String rawBody, String signature) {
-        PaymentProvider provider = providerOf(providerName);
+        PaymentProvider provider = validator.requireProvider(providerName);
         PaymentGateway gateway = gateways.require(provider);
         PaymentEvent event = gateway.verifyAndParse(rawBody, signature);
 
@@ -214,14 +214,4 @@ public class PaymentService {
         return null;
     }
 
-    private PaymentProvider providerOf(String name) {
-        if (name == null) {
-            throw ApiException.invalidState("Order has no payment provider set");
-        }
-        try {
-            return PaymentProvider.valueOf(name.toUpperCase(Locale.ROOT));
-        } catch (IllegalArgumentException e) {
-            throw ApiException.notFound("Unknown payment provider: " + name);
-        }
-    }
 }

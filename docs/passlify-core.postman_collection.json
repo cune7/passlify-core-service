@@ -1,0 +1,746 @@
+{
+  "info": {
+    "name": "Passlify Core Service API",
+    "description": "All endpoints of passlify-core-service.\n\n## Setup\n1. Start infra: `docker compose -f ci/docker-compose.yml up -d` (Postgres + Keycloak + Mailpit).\n2. Start the app: `./mvnw spring-boot:run` (listens on :8081).\n3. In this collection, open **Auth → Get Token** and Send — it logs into Keycloak (user `organizer1` by default) and saves the JWT into the `token` collection variable. All authenticated requests inherit it automatically.\n\n## Roles\nAny authenticated user can create/manage their own events (they become the organizer via ownership — no special role). Switch the `username` collection variable to exercise the role-gated areas (all password `password`):\n- `organizer1` → a regular user; can organize events + buy tickets\n- `operator1` → OPERATOR (scanning)\n- `admin1` → ADMIN (everything, incl. list all organizations)\n\nPaid events require a COMPANY profile first — see the **Organization** folder.\n\n## Chaining\nCreate requests save their generated ids into collection variables (`eventId`, `ticketTypeId`, `orderId`, `customFieldId`, `sessionId`, `ticketId`), so you can run folders top-to-bottom. Public/guest/webhook requests use No Auth (the resource UUID or a signature is the capability).\n\nInteractive docs also live at http://localhost:8081/swagger-ui.html",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8081" },
+    { "key": "keycloakUrl", "value": "http://localhost:8080" },
+    { "key": "realm", "value": "passlify" },
+    { "key": "clientId", "value": "passlify-client" },
+    { "key": "username", "value": "organizer1" },
+    { "key": "password", "value": "password" },
+    { "key": "token", "value": "" },
+    { "key": "eventId", "value": "" },
+    { "key": "slug", "value": "" },
+    { "key": "ticketTypeId", "value": "" },
+    { "key": "customFieldId", "value": "" },
+    { "key": "orderId", "value": "" },
+    { "key": "ticketId", "value": "" },
+    { "key": "sessionId", "value": "" },
+    { "key": "provider", "value": "mock" },
+    { "key": "qrToken", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Get Token (Keycloak)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set('token', json.access_token);",
+                  "pm.test('got access_token', () => pm.expect(json.access_token).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "grant_type", "value": "password" },
+                { "key": "client_id", "value": "{{clientId}}" },
+                { "key": "username", "value": "{{username}}" },
+                { "key": "password", "value": "{{password}}" }
+              ]
+            },
+            "url": {
+              "raw": "{{keycloakUrl}}/realms/{{realm}}/protocol/openid-connect/token",
+              "host": ["{{keycloakUrl}}"],
+              "path": ["realms", "{{realm}}", "protocol", "openid-connect", "token"]
+            },
+            "description": "Direct Access Grant against Keycloak. Saves access_token → {{token}}. Change the `username` collection variable to operator1 / admin1 for other roles."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Public Catalog (no auth)",
+      "item": [
+        {
+          "name": "Browse events",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/public/events?q=&city=&page=0&size=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "public", "events"],
+              "query": [
+                { "key": "q", "value": "", "description": "free-text search", "disabled": true },
+                { "key": "city", "value": "", "disabled": true },
+                { "key": "eventType", "value": "", "description": "event type UUID", "disabled": true },
+                { "key": "from", "value": "2026-01-01T00:00:00Z", "description": "ISO-8601 instant", "disabled": true },
+                { "key": "to", "value": "2026-12-31T23:59:59Z", "disabled": true },
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get published event by slug",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/public/events/{{slug}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "public", "events", "{{slug}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Organization (my profile)",
+      "item": [
+        {
+          "name": "Get my organization",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/me/organization",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "me", "organization"]
+            },
+            "description": "Your organizer profile. 404 until you create an event (auto-creates an INDIVIDUAL profile) or PUT one below."
+          }
+        },
+        {
+          "name": "Upsert my organization (COMPANY)",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"kind\": \"COMPANY\",\n  \"displayName\": \"Startit Events d.o.o.\",\n  \"legalName\": \"Startit Events d.o.o. Beograd\",\n  \"vatPib\": \"123456789\",\n  \"registrationNo\": \"21234567\",\n  \"addressLine\": \"Savska 5\",\n  \"city\": \"Belgrade\",\n  \"postalCode\": \"11000\",\n  \"country\": \"RS\",\n  \"contactEmail\": \"billing@startit.rs\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/me/organization",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "me", "organization"]
+            },
+            "description": "Required before publishing a PAID event. For a free-only organizer, send {\"kind\":\"INDIVIDUAL\",\"displayName\":\"...\"}."
+          }
+        },
+        {
+          "name": "Admin: list all organizations",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/organizations?page=0&size=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "organizations"],
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "20" }
+              ]
+            },
+            "description": "ADMIN only — set username=admin1 and re-run Get Token."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Events (any authenticated user)",
+      "item": [
+        {
+          "name": "Create event",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json();",
+                  "pm.collectionVariables.set('eventId', j.id);",
+                  "pm.collectionVariables.set('slug', j.slug);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Belgrade Tech Meetup\",\n  \"description\": \"An evening of talks and networking.\",\n  \"coverImageUrl\": \"https://example.com/cover.jpg\",\n  \"startsAt\": \"2026-09-01T18:00:00Z\",\n  \"endsAt\": \"2026-09-01T22:00:00Z\",\n  \"capacity\": 200,\n  \"tags\": [\"tech\", \"networking\"],\n  \"currency\": \"RSD\",\n  \"visibility\": \"PUBLIC\",\n  \"paymentProvider\": \"MOCK\",\n  \"location\": {\n    \"name\": \"Startit Centar\",\n    \"city\": \"Belgrade\",\n    \"address\": \"Savska 5\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/events",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "events"]
+            },
+            "description": "currency/paymentProvider/visibility fall back to defaults if omitted. Provide `location` (create-or-reuse) OR `locationId` (reuse) OR neither."
+          }
+        },
+        {
+          "name": "List my events",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/events?status=&page=0&size=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "events"],
+              "query": [
+                { "key": "status", "value": "DRAFT", "description": "DRAFT|PUBLISHED|COMPLETED|CANCELLED", "disabled": true },
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get event",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/events/{{eventId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "events", "{{eventId}}"]
+            }
+          }
+        },
+        {
+          "name": "Update event",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Belgrade Tech Meetup (Autumn)\",\n  \"capacity\": 250\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/events/{{eventId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "events", "{{eventId}}"]
+            },
+            "description": "Partial update — only non-null fields are applied."
+          }
+        },
+        {
+          "name": "Publish event",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/events/{{eventId}}/publish",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "events", "{{eventId}}", "publish"]
+            },
+            "description": "Requires at least one active ticket type."
+          }
+        },
+        {
+          "name": "Unpublish event",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/events/{{eventId}}/unpublish",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "events", "{{eventId}}", "unpublish"]
+            }
+          }
+        },
+        {
+          "name": "Cancel event",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/events/{{eventId}}/cancel",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "events", "{{eventId}}", "cancel"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Ticket Types (ORGANIZER/ADMIN)",
+      "item": [
+        {
+          "name": "Create ticket type",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.collectionVariables.set('ticketTypeId', pm.response.json().id);"]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"General Admission\",\n  \"description\": \"Standing.\",\n  \"priceMinor\": 150000,\n  \"currency\": \"RSD\",\n  \"totalQuantity\": 100,\n  \"maxPerOrder\": 6,\n  \"active\": true,\n  \"visibility\": \"PUBLIC\",\n  \"kind\": \"SINGLE_USE\",\n  \"attendeeDataMode\": \"BUYER_ONLY\",\n  \"sortOrder\": 0\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/events/{{eventId}}/ticket-types",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "events", "{{eventId}}", "ticket-types"]
+            },
+            "description": "priceMinor is integer minor units (e.g. 150000 = 1500.00 RSD). kind: SINGLE_USE|MULTI_DAY_PASS|SEASON_PASS|MEMBERSHIP. attendeeDataMode: BUYER_ONLY|EACH_TICKET."
+          }
+        },
+        {
+          "name": "List ticket types for event",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/events/{{eventId}}/ticket-types",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "events", "{{eventId}}", "ticket-types"]
+            }
+          }
+        },
+        {
+          "name": "Update ticket type",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"priceMinor\": 180000,\n  \"totalQuantity\": 120\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ticket-types/{{ticketTypeId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "ticket-types", "{{ticketTypeId}}"]
+            }
+          }
+        },
+        {
+          "name": "Delete ticket type",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ticket-types/{{ticketTypeId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "ticket-types", "{{ticketTypeId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Custom Fields (ORGANIZER/ADMIN)",
+      "item": [
+        {
+          "name": "Create custom field",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.collectionVariables.set('customFieldId', pm.response.json().id);"]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fieldKey\": \"tshirt_size\",\n  \"label\": \"T-shirt size\",\n  \"type\": \"SELECT\",\n  \"scope\": \"PER_ATTENDEE\",\n  \"required\": true,\n  \"options\": [\"S\", \"M\", \"L\", \"XL\"],\n  \"sortOrder\": 0\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/events/{{eventId}}/custom-fields",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "events", "{{eventId}}", "custom-fields"]
+            },
+            "description": "type: TEXT|TEXTAREA|EMAIL|PHONE|NUMBER|DATE|SELECT|CHECKBOX. scope: PER_PURCHASE (buyer) | PER_ATTENDEE. fieldKey: lowercase letters/digits/underscores."
+          }
+        },
+        {
+          "name": "List custom fields",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/events/{{eventId}}/custom-fields",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "events", "{{eventId}}", "custom-fields"]
+            }
+          }
+        },
+        {
+          "name": "Update custom field",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"label\": \"T-shirt size (unisex)\",\n  \"required\": false,\n  \"options\": [\"S\", \"M\", \"L\", \"XL\", \"XXL\"]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/custom-fields/{{customFieldId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "custom-fields", "{{customFieldId}}"]
+            },
+            "description": "fieldKey/type/scope are immutable."
+          }
+        },
+        {
+          "name": "Delete custom field",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/custom-fields/{{customFieldId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "custom-fields", "{{customFieldId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Orders / Checkout (guest)",
+      "item": [
+        {
+          "name": "Create order",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.collectionVariables.set('orderId', pm.response.json().id);"]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"buyer\": {\n    \"email\": \"buyer@example.com\",\n    \"name\": \"Buyer One\",\n    \"fields\": {}\n  },\n  \"items\": [\n    {\n      \"ticketTypeId\": \"{{ticketTypeId}}\",\n      \"quantity\": 2\n    }\n  ],\n  \"returnUrl\": \"https://myapp.example.com/checkout/return\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/orders",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "orders"]
+            },
+            "description": "Server-authoritative pricing — send only ticketTypeId + quantity. For EACH_TICKET ticket types, include one `attendees` entry per quantity unit, e.g. `\"attendees\":[{\"name\":\"A\",\"email\":\"a@x.com\",\"fields\":{\"tshirt_size\":\"M\"}}]`."
+          }
+        },
+        {
+          "name": "Get order",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/orders/{{orderId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "orders", "{{orderId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Payments (guest)",
+      "item": [
+        {
+          "name": "Create payment session",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json();",
+                  "pm.collectionVariables.set('sessionId', j.sessionId);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"successUrl\": \"https://myapp.example.com/checkout/success\",\n  \"cancelUrl\": \"https://myapp.example.com/checkout/cancel\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/orders/{{orderId}}/payment-session",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "orders", "{{orderId}}", "payment-session"]
+            },
+            "description": "Body optional. Returns checkoutUrl + sessionId. Redirect the buyer to checkoutUrl."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Webhooks (signature, no JWT)",
+      "item": [
+        {
+          "name": "Payment webhook (mock PAID)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Signature", "value": "", "description": "provider signature over the raw body", "disabled": true }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"PAID\",\n  \"sessionId\": \"{{sessionId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/webhooks/{{provider}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "webhooks", "{{provider}}"]
+            },
+            "description": "For the MOCK provider, POST {type: PAID|FAILED, sessionId} to simulate the bank. Real providers verify X-Signature over the raw body."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Tickets",
+      "item": [
+        {
+          "name": "List tickets for order (guest)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const a = pm.response.json();",
+                  "if (Array.isArray(a) && a.length) pm.collectionVariables.set('ticketId', a[0].id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/orders/{{orderId}}/tickets",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "orders", "{{orderId}}", "tickets"]
+            }
+          }
+        },
+        {
+          "name": "Get ticket (guest)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tickets/{{ticketId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tickets", "{{ticketId}}"]
+            }
+          }
+        },
+        {
+          "name": "Get ticket QR (PNG, guest)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tickets/{{ticketId}}/qr",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tickets", "{{ticketId}}", "qr"]
+            },
+            "description": "Returns image/png. Use Postman's 'Send and Download' to view."
+          }
+        },
+        {
+          "name": "Get ticket PDF (guest)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tickets/{{ticketId}}/pdf",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tickets", "{{ticketId}}", "pdf"]
+            },
+            "description": "Returns application/pdf. Use 'Send and Download'."
+          }
+        },
+        {
+          "name": "My tickets (authenticated buyer)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/me/tickets?page=0&size=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "me", "tickets"],
+              "query": [
+                { "key": "eventId", "value": "{{eventId}}", "disabled": true },
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "20" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Scanning (OPERATOR/ADMIN)",
+      "item": [
+        {
+          "name": "Scan ticket",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"qrToken\": \"{{qrToken}}\",\n  \"eventId\": \"{{eventId}}\",\n  \"gate\": \"Main\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/scan",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "scan"]
+            },
+            "description": "qrToken is the signed token encoded in the ticket's QR image (scanned at the gate). Always returns 200 — a denial is a verdict, not an error. Requires an OPERATOR/ADMIN token (set username=operator1 and re-run Get Token)."
+          }
+        },
+        {
+          "name": "Scan summary (live counts)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/events/{{eventId}}/scan-summary",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "events", "{{eventId}}", "scan-summary"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Dashboard (ORGANIZER/ADMIN)",
+      "item": [
+        {
+          "name": "Orders (paged)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/events/{{eventId}}/orders?page=0&size=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "events", "{{eventId}}", "orders"],
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Attendees (paged)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/events/{{eventId}}/attendees?page=0&size=50",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "events", "{{eventId}}", "attendees"],
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "50" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Sales summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/events/{{eventId}}/sales-summary",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "events", "{{eventId}}", "sales-summary"]
+            }
+          }
+        },
+        {
+          "name": "Export attendees (CSV)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/events/{{eventId}}/attendees/export",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "events", "{{eventId}}", "attendees", "export"]
+            },
+            "description": "Returns text/csv. Use 'Send and Download'."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Meta (no auth)",
+      "item": [
+        {
+          "name": "Health",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/actuator/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["actuator", "health"]
+            }
+          }
+        },
+        {
+          "name": "OpenAPI spec (JSON)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v3/api-docs",
+              "host": ["{{baseUrl}}"],
+              "path": ["v3", "api-docs"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

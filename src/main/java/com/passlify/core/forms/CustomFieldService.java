@@ -19,11 +19,14 @@ public class CustomFieldService {
 
     private final CustomFieldRepository fields;
     private final EventService eventService;
+    private final CustomFieldValidator validator;
     private final ObjectMapper objectMapper;
 
-    public CustomFieldService(CustomFieldRepository fields, EventService eventService, ObjectMapper objectMapper) {
+    public CustomFieldService(CustomFieldRepository fields, EventService eventService,
+                              CustomFieldValidator validator, ObjectMapper objectMapper) {
         this.fields = fields;
         this.eventService = eventService;
+        this.validator = validator;
         this.objectMapper = objectMapper;
     }
 
@@ -31,9 +34,7 @@ public class CustomFieldService {
     public CustomFieldResponse create(UUID eventId, CreateCustomFieldRequest req) {
         eventService.getOwned(eventId);   // ownership + existence
         String key = req.fieldKey().toLowerCase(Locale.ROOT);
-        if (fields.existsByEventIdAndFieldKey(eventId, key)) {
-            throw ApiException.conflict("A field with key '" + key + "' already exists for this event");
-        }
+        validator.assertKeyAvailable(eventId, key);
         CustomField field = new CustomField();
         field.setEventId(eventId);
         field.setFieldKey(key);

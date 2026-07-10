@@ -22,7 +22,7 @@ release inventory.
 
 ## Local dev setup
 
-Local infra (Postgres + Keycloak + Mailpit) is defined in [`docker-compose.yml`](./docker-compose.yml).
+Local infra (Postgres + Keycloak + Mailpit) is defined in [`docker-compose.yml`](ci/docker-compose.yml).
 The app's defaults in `src/main/resources/application.yml` already point at these, so **no env vars
 are required** for local dev.
 

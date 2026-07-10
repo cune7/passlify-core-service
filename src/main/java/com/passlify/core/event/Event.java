@@ -74,6 +74,10 @@ public class Event extends BaseEntity {
     @Column(name = "organizer_id", nullable = false, length = 64)
     private String organizerId;
 
+    /** The owning organization (organizer's business profile). See OrganizationService. */
+    @Column(name = "organization_id")
+    private java.util.UUID organizationId;
+
     private Integer capacity;
 
     @JdbcTypeCode(SqlTypes.ARRAY)

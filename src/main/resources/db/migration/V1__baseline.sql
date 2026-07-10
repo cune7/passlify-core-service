@@ -52,7 +52,7 @@ CREATE TABLE event (
     cover_image_url  VARCHAR(2048),
     status           VARCHAR(20)  NOT NULL DEFAULT 'DRAFT',
     visibility       VARCHAR(10)  NOT NULL DEFAULT 'PRIVATE',
-    currency         CHAR(3)      NOT NULL DEFAULT 'RSD',   -- event-level default currency
+    currency         VARCHAR(3)   NOT NULL DEFAULT 'RSD',   -- event-level default currency
     payment_provider VARCHAR(20)  NOT NULL DEFAULT 'MOCK',  -- which adapter handles checkout
     starts_at        TIMESTAMPTZ  NOT NULL,
     ends_at          TIMESTAMPTZ  NOT NULL,
@@ -84,7 +84,7 @@ CREATE TABLE ticket_type (
     name           VARCHAR(120) NOT NULL,
     description    TEXT,
     price_minor    BIGINT       NOT NULL,
-    currency       CHAR(3)      NOT NULL DEFAULT 'RSD',
+    currency       VARCHAR(3)   NOT NULL DEFAULT 'RSD',
     total_quantity INT          NOT NULL,
     sold_quantity  INT          NOT NULL DEFAULT 0,
     max_per_order  INT          NOT NULL DEFAULT 10,
@@ -116,7 +116,7 @@ CREATE TABLE orders (
     customer_id         VARCHAR(64),               -- Keycloak sub; null = guest
     customer_email      VARCHAR(320) NOT NULL,
     customer_name       VARCHAR(256),
-    currency            CHAR(3)      NOT NULL DEFAULT 'RSD',
+    currency            VARCHAR(3)   NOT NULL DEFAULT 'RSD',
     subtotal_minor      BIGINT       NOT NULL DEFAULT 0,
     discount_minor      BIGINT       NOT NULL DEFAULT 0,
     tax_minor           BIGINT       NOT NULL DEFAULT 0,
@@ -163,7 +163,7 @@ CREATE TABLE payment (
     provider                 VARCHAR(20)  NOT NULL DEFAULT 'MOCK',
     status                   VARCHAR(20)  NOT NULL DEFAULT 'PENDING',
     amount_minor             BIGINT       NOT NULL,
-    currency                 CHAR(3)      NOT NULL DEFAULT 'RSD',
+    currency                 VARCHAR(3)   NOT NULL DEFAULT 'RSD',
     provider_session_id      VARCHAR(255),
     provider_intent_id       VARCHAR(255),
     provider_charge_id       VARCHAR(255),

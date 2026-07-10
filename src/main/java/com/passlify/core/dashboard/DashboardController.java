@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 /** Organizer dashboard reads for one event (ownership enforced in the service). */
 @RestController
 @RequestMapping("/api/v1/events/{eventId}")
-@PreAuthorize("hasAnyRole('ORGANIZER','ADMIN')")
+@PreAuthorize("isAuthenticated()")
 public class DashboardController {
 
     private final DashboardService dashboardService;

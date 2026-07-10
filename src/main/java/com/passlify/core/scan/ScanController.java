@@ -33,7 +33,7 @@ public class ScanController {
     }
 
     @GetMapping("/api/v1/events/{id}/scan-summary")
-    @PreAuthorize("hasAnyRole('OPERATOR','ORGANIZER','ADMIN')")
+    @PreAuthorize("hasAnyRole('OPERATOR','ADMIN')")
     public ScanSummaryResponse summary(@PathVariable UUID id) {
         return scanService.summary(id);
     }

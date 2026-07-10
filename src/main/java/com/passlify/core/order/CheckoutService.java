@@ -4,7 +4,6 @@ import com.passlify.core.common.error.ApiException;
 import com.passlify.core.common.error.ErrorCode;
 import com.passlify.core.common.security.CurrentUser;
 import com.passlify.core.event.Event;
-import com.passlify.core.event.EventStatus;
 import com.passlify.core.forms.CustomField;
 import com.passlify.core.forms.CustomFieldRepository;
 import com.passlify.core.forms.FieldScope;
@@ -17,11 +16,8 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -48,6 +44,7 @@ public class CheckoutService {
     private final AttendeeRepository attendees;
     private final CurrentUser currentUser;
     private final TicketIssuanceService ticketIssuanceService;
+    private final CheckoutValidator validator;
     private final ObjectMapper objectMapper;
 
     public CheckoutService(OrderRepository orders,
@@ -56,6 +53,7 @@ public class CheckoutService {
                            AttendeeRepository attendees,
                            CurrentUser currentUser,
                            TicketIssuanceService ticketIssuanceService,
+                           CheckoutValidator validator,
                            ObjectMapper objectMapper) {
         this.orders = orders;
         this.ticketTypes = ticketTypes;
@@ -63,13 +61,14 @@ public class CheckoutService {
         this.attendees = attendees;
         this.currentUser = currentUser;
         this.ticketIssuanceService = ticketIssuanceService;
+        this.validator = validator;
         this.objectMapper = objectMapper;
     }
 
     @Transactional
     public Order createOrder(CreateOrderRequest req) {
         List<CreateOrderRequest.Line> lines = req.items();
-        rejectDuplicateTicketTypes(lines);
+        validator.rejectDuplicateTicketTypes(lines);
 
         // Reserve in a stable order (by id) to avoid deadlocks under concurrency.
         List<CreateOrderRequest.Line> ordered = new ArrayList<>(lines);
@@ -87,18 +86,15 @@ public class CheckoutService {
 
             if (event == null) {
                 event = ttEvent;
-            } else if (!event.getId().equals(ttEvent.getId())) {
-                throw ApiException.of(ErrorCode.NOT_SELLABLE, "All items must belong to the same event");
+            } else {
+                validator.assertSameEvent(event, ttEvent);
             }
 
-            assertSellable(tt, line.quantity());
+            validator.assertSellable(tt, line.quantity());
 
             if (tt.getAttendeeDataMode() == AttendeeDataMode.EACH_TICKET) {
                 List<CreateOrderRequest.Attendee> provided = line.attendees();
-                if (provided == null || provided.size() != line.quantity()) {
-                    throw ApiException.validation("Ticket type '" + tt.getName()
-                            + "' requires attendee details for each ticket (" + line.quantity() + " expected)");
-                }
+                validator.assertAttendeeCount(tt, provided, line.quantity());
                 for (CreateOrderRequest.Attendee a : provided) {
                     pendingAttendees.add(new PendingAttendee(tt, a));
                 }
@@ -126,12 +122,12 @@ public class CheckoutService {
         UUID eventId = event.getId();
         List<CustomField> purchaseDefs =
                 customFields.findByEventIdAndScopeOrderBySortOrderAscCreatedAtAsc(eventId, FieldScope.PER_PURCHASE);
-        Map<String, String> buyerValues = cleanAndValidate(purchaseDefs, req.buyer().fields(), "buyer");
+        Map<String, String> buyerValues = validator.cleanAndValidate(purchaseDefs, req.buyer().fields(), "buyer");
 
         List<CustomField> attendeeDefs =
                 customFields.findByEventIdAndScopeOrderBySortOrderAscCreatedAtAsc(eventId, FieldScope.PER_ATTENDEE);
         for (PendingAttendee pending : pendingAttendees) {
-            pending.cleanedFields = cleanAndValidate(attendeeDefs, pending.input.fields(), "attendee");
+            pending.cleanedFields = validator.cleanAndValidate(attendeeDefs, pending.input.fields(), "attendee");
         }
 
         boolean free = subtotal == 0;
@@ -196,23 +192,6 @@ public class CheckoutService {
         }
     }
 
-    /** Keeps only recognized keys and enforces required fields. */
-    private Map<String, String> cleanAndValidate(List<CustomField> defs, Map<String, String> submitted, String context) {
-        Map<String, String> safe = submitted != null ? submitted : Map.of();
-        Map<String, String> cleaned = new LinkedHashMap<>();
-        for (CustomField def : defs) {
-            String value = safe.get(def.getFieldKey());
-            if (def.isRequired() && (value == null || value.isBlank())) {
-                throw ApiException.validation(
-                        "Missing required " + context + " field: " + def.getLabel() + " (" + def.getFieldKey() + ")");
-            }
-            if (value != null && !value.isBlank()) {
-                cleaned.put(def.getFieldKey(), value);
-            }
-        }
-        return cleaned;
-    }
-
     private String toJsonOrNull(Map<String, String> values) {
         if (values == null || values.isEmpty()) {
             return null;
@@ -220,34 +199,4 @@ public class CheckoutService {
         return objectMapper.writeValueAsString(values);
     }
 
-    private void rejectDuplicateTicketTypes(List<CreateOrderRequest.Line> lines) {
-        Set<UUID> seen = new HashSet<>();
-        for (CreateOrderRequest.Line line : lines) {
-            if (!seen.add(line.ticketTypeId())) {
-                throw ApiException.validation(
-                        "Duplicate ticket type in order: " + line.ticketTypeId()
-                                + " (combine into a single line)");
-            }
-        }
-    }
-
-    private void assertSellable(TicketType tt, int quantity) {
-        if (tt.getEvent().getStatus() != EventStatus.PUBLISHED) {
-            throw ApiException.of(ErrorCode.NOT_SELLABLE, "Event is not on sale");
-        }
-        if (!tt.isActive()) {
-            throw ApiException.of(ErrorCode.NOT_SELLABLE, "Ticket type '" + tt.getName() + "' is not active");
-        }
-        Instant now = Instant.now();
-        if (tt.getSalesStartAt() != null && now.isBefore(tt.getSalesStartAt())) {
-            throw ApiException.of(ErrorCode.NOT_SELLABLE, "Sales have not started for '" + tt.getName() + "'");
-        }
-        if (tt.getSalesEndAt() != null && now.isAfter(tt.getSalesEndAt())) {
-            throw ApiException.of(ErrorCode.NOT_SELLABLE, "Sales have ended for '" + tt.getName() + "'");
-        }
-        if (quantity > tt.getMaxPerOrder()) {
-            throw ApiException.of(ErrorCode.QTY_EXCEEDS_MAX,
-                    "Max " + tt.getMaxPerOrder() + " per order for '" + tt.getName() + "'");
-        }
-    }
 }

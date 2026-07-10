@@ -23,7 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
  * target a ticket type directly (matches API.md §2). Ownership in the service.
  */
 @RestController
-@PreAuthorize("hasAnyRole('ORGANIZER','ADMIN')")
+@PreAuthorize("isAuthenticated()")
 public class TicketTypeController {
 
     private final TicketTypeService ticketTypeService;

@@ -29,6 +29,9 @@
     <properties>
         <java.version>25</java.version>
         <testcontainers.version>1.21.4</testcontainers.version>
+        <!-- springdoc 3.0.x is the line that supports Spring Boot 4 / Spring 7.
+             Not managed by the Boot parent BOM, so the version is pinned here. -->
+        <springdoc.version>3.0.3</springdoc.version>
     </properties>
 
     <dependencyManagement>
@@ -67,6 +70,13 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-mail</artifactId>
+        </dependency>
+
+        <!-- API docs: OpenAPI 3 spec at /v3/api-docs, Swagger UI at /swagger-ui.html -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <version>${springdoc.version}</version>
         </dependency>
 
         <!-- Flyway owns the schema (versioned SQL migrations).

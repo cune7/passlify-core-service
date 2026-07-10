@@ -6,6 +6,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.passlify.core.common.error.ApiException;
 import com.passlify.core.common.error.ErrorCode;
 import com.passlify.core.event.dto.CreateEventRequest;
+import com.passlify.core.organization.OrganizationKind;
+import com.passlify.core.organization.OrganizationService;
+import com.passlify.core.organization.dto.UpsertOrganizationRequest;
 import com.passlify.core.support.AbstractIntegrationTest;
 import com.passlify.core.ticket.TicketTypeService;
 import com.passlify.core.ticket.dto.CreateTicketTypeRequest;
@@ -29,6 +32,9 @@ class EventServiceIntegrationTest extends AbstractIntegrationTest {
 
     @Autowired
     TicketTypeService ticketTypeService;
+
+    @Autowired
+    OrganizationService organizationService;
 
     @AfterEach
     void clearAuth() {
@@ -56,12 +62,20 @@ class EventServiceIntegrationTest extends AbstractIntegrationTest {
                 .isInstanceOfSatisfying(ApiException.class,
                         ex -> assertThat(ex.getCode()).isEqualTo(ErrorCode.INVALID_STATE));
 
-        // Add an active ticket type, then publishing succeeds.
+        // Add an active PAID ticket type; publishing now also requires a company profile.
         ticketTypeService.create(event.getId(), new CreateTicketTypeRequest(
                 "Regular", null, 250_000L, null, 100, null, null, null, null, null, null, null, null));
+        makeCompany();
 
         Event published = eventService.publish(event.getId());
         assertThat(published.getStatus()).isEqualTo(EventStatus.PUBLISHED);
+    }
+
+    /** Upgrades the current user's org to a billable COMPANY so paid events can publish. */
+    private void makeCompany() {
+        organizationService.upsertMine(new UpsertOrganizationRequest(
+                OrganizationKind.COMPANY, "Org One d.o.o.", "Org One d.o.o.",
+                "123456789", "21234567", "Savska 5", "Belgrade", "11000", "RS", null));
     }
 
     @Test

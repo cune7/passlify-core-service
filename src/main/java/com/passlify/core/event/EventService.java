@@ -1,13 +1,13 @@
 package com.passlify.core.event;
 
 import com.passlify.core.common.error.ApiException;
-import com.passlify.core.common.error.ErrorCode;
 import com.passlify.core.common.security.CurrentUser;
 import com.passlify.core.event.dto.CreateEventRequest;
 import com.passlify.core.event.dto.LocationDto;
 import com.passlify.core.event.dto.UpdateEventRequest;
+import com.passlify.core.organization.Organization;
+import com.passlify.core.organization.OrganizationService;
 import com.passlify.core.payment.PaymentProvider;
-import com.passlify.core.ticket.TicketTypeRepository;
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.Locale;
@@ -31,27 +31,30 @@ public class EventService {
     private final EventRepository events;
     private final EventTypeRepository eventTypes;
     private final LocationRepository locations;
-    private final TicketTypeRepository ticketTypes;
+    private final OrganizationService organizations;
+    private final EventValidator validator;
     private final CurrentUser currentUser;
     private final String defaultCurrency;
 
     public EventService(EventRepository events,
                         EventTypeRepository eventTypes,
                         LocationRepository locations,
-                        TicketTypeRepository ticketTypes,
+                        OrganizationService organizations,
+                        EventValidator validator,
                         CurrentUser currentUser,
                         @Value("${passlify.default-currency:RSD}") String defaultCurrency) {
         this.events = events;
         this.eventTypes = eventTypes;
         this.locations = locations;
-        this.ticketTypes = ticketTypes;
+        this.organizations = organizations;
+        this.validator = validator;
         this.currentUser = currentUser;
         this.defaultCurrency = defaultCurrency;
     }
 
     @Transactional
     public Event create(CreateEventRequest req) {
-        validateDates(req.startsAt(), req.endsAt());
+        validator.validateDates(req.startsAt(), req.endsAt());
         Event e = new Event();
         e.setName(req.name());
         e.setDescription(req.description());
@@ -67,6 +70,10 @@ public class EventService {
         e.setEventType(resolveEventType(req.eventTypeId()));
         e.setLocation(resolveLocation(req.locationId(), req.location()));
         e.setOrganizerId(currentUser.requireSubject());
+        // Every event belongs to the organizer's organization; create a minimal
+        // INDIVIDUAL profile on first use (enough for free events).
+        Organization org = organizations.getOrCreateForCurrentUser();
+        e.setOrganizationId(org.getId());
         e.setSlug(generateUniqueSlug(req.name()));
         return events.save(e);
     }
@@ -90,7 +97,7 @@ public class EventService {
 
         Instant newStart = req.startsAt() != null ? req.startsAt() : e.getStartsAt();
         Instant newEnd = req.endsAt() != null ? req.endsAt() : e.getEndsAt();
-        validateDates(newStart, newEnd);
+        validator.validateDates(newStart, newEnd);
         e.setStartsAt(newStart);
         e.setEndsAt(newEnd);
 
@@ -131,18 +138,7 @@ public class EventService {
     @Transactional
     public Event publish(UUID id) {
         Event e = loadOwned(id);
-        if (e.getStatus() == EventStatus.PUBLISHED) {
-            throw ApiException.of(ErrorCode.ALREADY_PUBLISHED, "Event is already published");
-        }
-        if (e.getStatus() == EventStatus.CANCELLED || e.getStatus() == EventStatus.COMPLETED) {
-            throw ApiException.invalidState("Cannot publish a " + e.getStatus() + " event");
-        }
-        if (e.getStartsAt().isBefore(Instant.now())) {
-            throw ApiException.invalidState("Cannot publish an event that has already started");
-        }
-        if (ticketTypes.countByEventIdAndActiveTrue(e.getId()) == 0) {
-            throw ApiException.invalidState("Event needs at least one active ticket type to publish");
-        }
+        validator.assertPublishable(e);
         e.setStatus(EventStatus.PUBLISHED);
         return e;
     }
@@ -150,9 +146,7 @@ public class EventService {
     @Transactional
     public Event unpublish(UUID id) {
         Event e = loadOwned(id);
-        if (e.getStatus() != EventStatus.PUBLISHED) {
-            throw ApiException.invalidState("Only a published event can be unpublished");
-        }
+        validator.assertUnpublishable(e);
         e.setStatus(EventStatus.DRAFT);
         return e;
     }
@@ -160,9 +154,7 @@ public class EventService {
     @Transactional
     public Event cancel(UUID id) {
         Event e = loadOwned(id);
-        if (e.getStatus() == EventStatus.COMPLETED) {
-            throw ApiException.invalidState("Cannot cancel a completed event");
-        }
+        validator.assertCancellable(e);
         e.setStatus(EventStatus.CANCELLED);
         return e;
     }
@@ -178,12 +170,6 @@ public class EventService {
         String organizer = currentUser.requireSubject();
         return events.findByIdAndOrganizerId(id, organizer)
                 .orElseThrow(() -> ApiException.notFound("Event not found: " + id));
-    }
-
-    private void validateDates(Instant startsAt, Instant endsAt) {
-        if (!endsAt.isAfter(startsAt)) {
-            throw ApiException.validation("endsAt must be after startsAt");
-        }
     }
 
     private String normalizeCurrency(String currency) {

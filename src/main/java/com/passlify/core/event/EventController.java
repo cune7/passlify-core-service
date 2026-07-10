@@ -25,7 +25,7 @@ import org.springframework.web.bind.annotation.RestController;
 /** Organizer event management. Ownership is enforced in {@link EventService}. */
 @RestController
 @RequestMapping("/api/v1/events")
-@PreAuthorize("hasAnyRole('ORGANIZER','ADMIN')")
+@PreAuthorize("isAuthenticated()")
 public class EventController {
 
     private final EventService eventService;

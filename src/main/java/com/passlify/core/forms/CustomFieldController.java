@@ -20,7 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 /** Organizer management of an event's custom fields. */
 @RestController
-@PreAuthorize("hasAnyRole('ORGANIZER','ADMIN')")
+@PreAuthorize("isAuthenticated()")
 public class CustomFieldController {
 
     private final CustomFieldService customFieldService;

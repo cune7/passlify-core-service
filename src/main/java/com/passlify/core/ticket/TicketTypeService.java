@@ -24,16 +24,20 @@ TicketTypeService {
 
     private final TicketTypeRepository ticketTypes;
     private final EventService eventService;
+    private final TicketTypeValidator validator;
 
-    public TicketTypeService(TicketTypeRepository ticketTypes, EventService eventService) {
+    public TicketTypeService(TicketTypeRepository ticketTypes,
+                             EventService eventService,
+                             TicketTypeValidator validator) {
         this.ticketTypes = ticketTypes;
         this.eventService = eventService;
+        this.validator = validator;
     }
 
     @Transactional
     public TicketType create(UUID eventId, CreateTicketTypeRequest req) {
         Event event = eventService.getOwned(eventId);   // ownership + existence
-        validateSalesWindow(req.salesStartAt(), req.salesEndAt());
+        validator.validateSalesWindow(req.salesStartAt(), req.salesEndAt());
 
         TicketType t = new TicketType();
         t.setEvent(event);
@@ -65,10 +69,7 @@ TicketTypeService {
         TicketType t = loadOwned(ticketTypeId);
 
         if (req.totalQuantity() != null) {
-            if (req.totalQuantity() < t.getSoldQuantity()) {
-                throw ApiException.conflict(
-                        "Cannot reduce total quantity below sold quantity (" + t.getSoldQuantity() + ")");
-            }
+            validator.assertCanSetTotalQuantity(t, req.totalQuantity());
             t.setTotalQuantity(req.totalQuantity());
         }
 
@@ -79,9 +80,7 @@ TicketTypeService {
     @Transactional
     public void delete(UUID ticketTypeId) {
         TicketType t = loadOwned(ticketTypeId);
-        if (t.getSoldQuantity() > 0) {
-            throw ApiException.conflict("Cannot delete a ticket type that has sold tickets");
-        }
+        validator.assertDeletable(t);
         ticketTypes.delete(t);
     }
 
@@ -120,7 +119,7 @@ TicketTypeService {
         }
         Instant newStart = req.salesStartAt() != null ? req.salesStartAt() : t.getSalesStartAt();
         Instant newEnd = req.salesEndAt() != null ? req.salesEndAt() : t.getSalesEndAt();
-        validateSalesWindow(newStart, newEnd);
+        validator.validateSalesWindow(newStart, newEnd);
         t.setSalesStartAt(newStart);
         t.setSalesEndAt(newEnd);
     }
@@ -130,11 +129,5 @@ TicketTypeService {
                 .orElseThrow(() -> ApiException.notFound("Ticket type not found: " + ticketTypeId));
         eventService.getOwned(t.getEvent().getId());   // ownership check, throws 404 if not owned
         return t;
-    }
-
-    private void validateSalesWindow(Instant start, Instant end) {
-        if (start != null && end != null && !end.isAfter(start)) {
-            throw ApiException.validation("salesEndAt must be after salesStartAt");
-        }
     }
 }
