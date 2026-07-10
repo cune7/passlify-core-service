@@ -1,0 +1,167 @@
+{
+  "realm": "passlify",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": true,
+  "registrationEmailAsUsername": true,
+  "resetPasswordAllowed": true,
+  "rememberMe": true,
+  "verifyEmail": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "editUsernameAllowed": false,
+  "accessTokenLifespan": 3600,
+  "smtpServer": {
+    "host": "passlify-mailpit",
+    "port": "1025",
+    "from": "no-reply@passlify.rs",
+    "fromDisplayName": "Passlify (dev)",
+    "ssl": "false",
+    "starttls": "false",
+    "auth": "false"
+  },
+  "roles": {
+    "realm": [
+      {
+        "name": "ORGANIZER",
+        "description": "Manage own events and ticket types"
+      },
+      {
+        "name": "OPERATOR",
+        "description": "Scan tickets at the gate"
+      },
+      {
+        "name": "ADMIN",
+        "description": "Platform administrator"
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "passlify-web",
+      "name": "Passlify Web (browser SPA)",
+      "description": "Public browser client for the redirect login/registration flow (Authorization Code + PKCE).",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "rootUrl": "http://localhost:3000",
+      "baseUrl": "/",
+      "redirectUris": [
+        "http://localhost:3000/*",
+        "http://localhost:5173/*"
+      ],
+      "webOrigins": [
+        "http://localhost:3000",
+        "http://localhost:5173"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:3000/*##http://localhost:5173/*"
+      }
+    },
+    {
+      "clientId": "passlify-client",
+      "name": "Passlify client (API / tests)",
+      "description": "Public client with direct access grant, used by Postman and integration tests.",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "redirectUris": [
+        "*"
+      ],
+      "webOrigins": [
+        "*"
+      ],
+      "attributes": {
+        "post.logout.redirect.uris": "+"
+      }
+    }
+  ],
+  "identityProviders": [
+    {
+      "alias": "google",
+      "providerId": "google",
+      "enabled": true,
+      "trustEmail": true,
+      "storeToken": false,
+      "firstBrokerLoginFlowAlias": "first broker login",
+      "config": {
+        "clientId": "REPLACE_WITH_GOOGLE_CLIENT_ID",
+        "clientSecret": "REPLACE_WITH_GOOGLE_CLIENT_SECRET",
+        "useJwksUrl": "true",
+        "syncMode": "IMPORT",
+        "defaultScope": "openid profile email"
+      }
+    }
+  ],
+  "users": [
+    {
+      "username": "organizer1",
+      "enabled": true,
+      "email": "organizer1@passlify.rs",
+      "emailVerified": true,
+      "firstName": "Olga",
+      "lastName": "Organizer",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "ORGANIZER"
+      ]
+    },
+    {
+      "username": "operator1",
+      "enabled": true,
+      "email": "operator1@passlify.rs",
+      "emailVerified": true,
+      "firstName": "Ozren",
+      "lastName": "Operator",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "OPERATOR"
+      ]
+    },
+    {
+      "username": "admin1",
+      "enabled": true,
+      "email": "admin1@passlify.rs",
+      "emailVerified": true,
+      "firstName": "Ada",
+      "lastName": "Admin",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "ADMIN"
+      ]
+    }
+  ],
+  "components": {
+    "org.keycloak.userprofile.UserProfileProvider": [
+      {
+        "providerId": "declarative-user-profile",
+        "config": {
+          "kc.user.profile.config": [
+            "{\"attributes\": [{\"name\": \"username\", \"displayName\": \"${username}\", \"permissions\": {\"view\": [\"admin\", \"user\"], \"edit\": [\"admin\", \"user\"]}}, {\"name\": \"email\", \"displayName\": \"${email}\", \"required\": {\"roles\": [\"user\"]}, \"permissions\": {\"view\": [\"admin\", \"user\"], \"edit\": [\"admin\", \"user\"]}, \"validations\": {\"email\": {}, \"length\": {\"max\": 255}}}, {\"name\": \"firstName\", \"displayName\": \"${firstName}\", \"required\": {\"roles\": [\"user\"]}, \"permissions\": {\"view\": [\"admin\", \"user\"], \"edit\": [\"admin\", \"user\"]}, \"validations\": {\"length\": {\"max\": 255}, \"person-name-prohibited-characters\": {}}}, {\"name\": \"lastName\", \"displayName\": \"${lastName}\", \"required\": {\"roles\": [\"user\"]}, \"permissions\": {\"view\": [\"admin\", \"user\"], \"edit\": [\"admin\", \"user\"]}, \"validations\": {\"length\": {\"max\": 255}, \"person-name-prohibited-characters\": {}}}, {\"name\": \"phone\", \"displayName\": \"Phone number\", \"required\": {\"roles\": [\"user\"]}, \"permissions\": {\"view\": [\"admin\", \"user\"], \"edit\": [\"admin\", \"user\"]}, \"validations\": {\"length\": {\"max\": 40}, \"pattern\": {\"pattern\": \"^\\\\+?[0-9 ()\\\\-]{6,40}$\", \"error-message\": \"Please enter a valid phone number\"}}}]}"
+          ]
+        }
+      }
+    ]
+  }
+}

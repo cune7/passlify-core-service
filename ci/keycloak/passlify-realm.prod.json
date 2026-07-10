@@ -1,0 +1,112 @@
+{
+  "realm": "passlify",
+  "enabled": true,
+  "sslRequired": "external",
+  "registrationAllowed": true,
+  "registrationEmailAsUsername": true,
+  "resetPasswordAllowed": true,
+  "rememberMe": true,
+  "verifyEmail": true,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "editUsernameAllowed": false,
+  "accessTokenLifespan": 3600,
+  "__comment_smtp": "Secrets are NOT reliably substituted from env in realm imports. After the first bootstrap import, set the real SMTP user/password (and Google creds below) in the Keycloak Admin Console \u2192 Realm settings \u2192 Email / Identity providers, OR edit this file before deploying. Host/from below are safe to keep in git.",
+  "smtpServer": {
+    "host": "email-smtp.eu-central-1.amazonaws.com",
+    "port": "587",
+    "from": "no-reply@passlify.rs",
+    "fromDisplayName": "Passlify",
+    "ssl": "false",
+    "starttls": "true",
+    "auth": "true",
+    "user": "REPLACE_WITH_SMTP_USERNAME",
+    "password": "REPLACE_WITH_SMTP_PASSWORD"
+  },
+  "roles": {
+    "realm": [
+      {
+        "name": "ORGANIZER",
+        "description": "Manage own events and ticket types"
+      },
+      {
+        "name": "OPERATOR",
+        "description": "Scan tickets at the gate"
+      },
+      {
+        "name": "ADMIN",
+        "description": "Platform administrator"
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "passlify-web",
+      "name": "Passlify Web (browser SPA)",
+      "description": "Public browser client for the redirect login/registration flow (Authorization Code + PKCE).",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "rootUrl": "https://app.passlify.rs",
+      "baseUrl": "/",
+      "redirectUris": [
+        "https://app.passlify.rs/*"
+      ],
+      "webOrigins": [
+        "https://app.passlify.rs"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "https://app.passlify.rs/*"
+      }
+    },
+    {
+      "clientId": "passlify-client",
+      "name": "Passlify client (API / server-to-server)",
+      "description": "Public client for API tooling. Consider disabling directAccessGrants in production if not needed.",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "redirectUris": [
+        "https://app.passlify.rs/*"
+      ],
+      "webOrigins": [
+        "https://app.passlify.rs"
+      ],
+      "attributes": {
+        "post.logout.redirect.uris": "https://app.passlify.rs/*"
+      }
+    }
+  ],
+  "identityProviders": [
+    {
+      "alias": "google",
+      "providerId": "google",
+      "enabled": true,
+      "trustEmail": true,
+      "storeToken": false,
+      "firstBrokerLoginFlowAlias": "first broker login",
+      "config": {
+        "clientId": "REPLACE_WITH_GOOGLE_CLIENT_ID",
+        "clientSecret": "REPLACE_WITH_GOOGLE_CLIENT_SECRET",
+        "useJwksUrl": "true",
+        "syncMode": "IMPORT",
+        "defaultScope": "openid profile email"
+      }
+    }
+  ],
+  "components": {
+    "org.keycloak.userprofile.UserProfileProvider": [
+      {
+        "providerId": "declarative-user-profile",
+        "config": {
+          "kc.user.profile.config": [
+            "{\"attributes\": [{\"name\": \"username\", \"displayName\": \"${username}\", \"permissions\": {\"view\": [\"admin\", \"user\"], \"edit\": [\"admin\", \"user\"]}}, {\"name\": \"email\", \"displayName\": \"${email}\", \"required\": {\"roles\": [\"user\"]}, \"permissions\": {\"view\": [\"admin\", \"user\"], \"edit\": [\"admin\", \"user\"]}, \"validations\": {\"email\": {}, \"length\": {\"max\": 255}}}, {\"name\": \"firstName\", \"displayName\": \"${firstName}\", \"required\": {\"roles\": [\"user\"]}, \"permissions\": {\"view\": [\"admin\", \"user\"], \"edit\": [\"admin\", \"user\"]}, \"validations\": {\"length\": {\"max\": 255}, \"person-name-prohibited-characters\": {}}}, {\"name\": \"lastName\", \"displayName\": \"${lastName}\", \"required\": {\"roles\": [\"user\"]}, \"permissions\": {\"view\": [\"admin\", \"user\"], \"edit\": [\"admin\", \"user\"]}, \"validations\": {\"length\": {\"max\": 255}, \"person-name-prohibited-characters\": {}}}, {\"name\": \"phone\", \"displayName\": \"Phone number\", \"required\": {\"roles\": [\"user\"]}, \"permissions\": {\"view\": [\"admin\", \"user\"], \"edit\": [\"admin\", \"user\"]}, \"validations\": {\"length\": {\"max\": 40}, \"pattern\": {\"pattern\": \"^\\\\+?[0-9 ()\\\\-]{6,40}$\", \"error-message\": \"Please enter a valid phone number\"}}}]}"
+          ]
+        }
+      }
+    ]
+  }
+}
