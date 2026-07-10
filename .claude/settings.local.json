@@ -37,7 +37,20 @@
       "Bash(curl -s -o /tmp/login.html -w 'HTTP %{http_code}\\\\n' 'http://localhost:8080/realms/passlify/protocol/openid-connect/auth?client_id=passlify-client&redirect_uri=http://localhost:8081&response_type=code&scope=openid')",
       "Bash(echo \"=== COMPILE EXIT $? ===\")",
       "Bash(python3 -c \"import json;d=json.load\\(open\\('docs/passlify-core.postman_collection.json'\\)\\);print\\('✓ valid,',sum\\(len\\(f['item']\\) for f in d['item']\\),'requests in',len\\(d['item']\\),'folders'\\)\")",
-      "Bash(tee /tmp/t.out)"
+      "Bash(tee /tmp/t.out)",
+      "Read(//Users/milos.stojanovic/repo/**)",
+      "Read(//Users/milos.stojanovic/**)",
+      "Bash(git add *)",
+      "Bash(git restore *)",
+      "Bash(git commit -q -m 'Add portable Claude memory under passlify-spec/memory *)",
+      "Bash(git push *)",
+      "Bash(grep -v -E '^\\\\s*$')",
+      "Bash(grep -vE '^\\\\[INFO\\\\]|^\\\\[ERROR\\\\]|^\\\\[WARNING\\\\]|Downloading|Downloaded|^\\\\s+at |^WARNING:|^Caused by|Exception|^\\\\s+\\\\.\\\\.\\\\.|^\\\\t|^[0-9]{4}-[0-9]{2}-[0-9]{2}|^\\\\s+[a-z]+\\\\.[a-z]|SLF4J|Hibernate:|^\\\\s{2,}')",
+      "Bash(awk '{ if \\(length\\($0\\) < 400\\) print }')",
+      "Bash(grep -vE '^\\\\[INFO\\\\]|^\\\\[ERROR\\\\]|^\\\\[WARNING\\\\]|Downloading|Downloaded|^\\\\s+at |^WARNING:|^Caused by|Exception|^\\\\s+\\\\.\\\\.\\\\.|^\\\\t|INFO|Hibernate:|SLF4J|^\\\\s{2,}|testcontainers|Spring Boot|CONDITIONS|====|match|Exclusion|Unconditional|task-notification|task-id|tool-use-id|output-file|status|summary|SQL State|Error Code|^Message|refused|^ /\\\\\\\\\\\\\\\\|^\\\\\\( \\\\\\( \\\\\\)|^ \\\\\\\\\\\\\\\\|^ =|Positive|Negative')",
+      "Bash(awk '{ if \\(length\\($0\\) < 500\\) print }')",
+      "Bash(git commit -q -m 'Add memory: validator architecture, organization domain model, ask-when-unsure *)",
+      "Bash(git commit -q -m 'Add memory: keep Postman collection in sync with API changes *)"
     ]
   }
 }
