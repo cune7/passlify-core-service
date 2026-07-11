@@ -56,9 +56,7 @@ Partial body of the create fields. `slug` immutable once `PUBLISHED`. Response `
 
 ### `POST /api/v1/events/{id}/publish` — publish · `ORGANIZER`
 Guards (DOMAIN §2.3): ≥1 active ticket type, `startsAt` in future. Response `200` or `409` if guards fail.
-
-### `POST /api/v1/events/{id}/unpublish` — back to DRAFT · `ORGANIZER`
-Response `200`.
+Publishing is **one-way** — there is no unpublish; use `cancel` to take an event down.
 
 ### `POST /api/v1/events/{id}/cancel` — cancel · `ORGANIZER`
 Sets `status=CANCELLED`. Response `200`.

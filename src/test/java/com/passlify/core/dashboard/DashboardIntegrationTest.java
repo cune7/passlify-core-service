@@ -4,10 +4,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.passlify.core.dashboard.dto.OrderSummary;
 import com.passlify.core.dashboard.dto.SalesSummaryResponse;
+import com.passlify.core.event.CommercialMode;
 import com.passlify.core.event.Event;
 import com.passlify.core.event.EventService;
 import com.passlify.core.event.Visibility;
 import com.passlify.core.event.dto.CreateEventRequest;
+import com.passlify.core.payment.PaymentProvider;
 import com.passlify.core.order.CheckoutService;
 import com.passlify.core.order.Order;
 import com.passlify.core.order.OrderStatus;
@@ -115,7 +117,8 @@ class DashboardIntegrationTest extends AbstractIntegrationTest {
         Instant start = Instant.now().plus(30, ChronoUnit.DAYS);
         return new CreateEventRequest(
                 "Dash Fest", "desc", null, start, start.plus(4, ChronoUnit.HOURS),
-                null, null, null, 500, List.of(), "RSD", Visibility.PUBLIC, null);
+                "Europe/Belgrade", null, CommercialMode.PAID, null, null, null, 500,
+                List.of(), "RSD", Visibility.PUBLIC, PaymentProvider.MOCK);
     }
 
     private CreateTicketTypeRequest ticketTypeRequest() {

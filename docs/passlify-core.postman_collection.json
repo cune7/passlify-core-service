@@ -183,14 +183,14 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Belgrade Tech Meetup\",\n  \"description\": \"An evening of talks and networking.\",\n  \"coverImageUrl\": \"https://example.com/cover.jpg\",\n  \"startsAt\": \"2026-09-01T18:00:00Z\",\n  \"endsAt\": \"2026-09-01T22:00:00Z\",\n  \"capacity\": 200,\n  \"tags\": [\"tech\", \"networking\"],\n  \"currency\": \"RSD\",\n  \"visibility\": \"PUBLIC\",\n  \"paymentProvider\": \"MOCK\",\n  \"location\": {\n    \"name\": \"Startit Centar\",\n    \"city\": \"Belgrade\",\n    \"address\": \"Savska 5\"\n  }\n}"
+              "raw": "{\n  \"name\": \"Belgrade Tech Meetup\",\n  \"descriptionHtml\": \"<p>An evening of <b>talks</b> and networking.</p>\",\n  \"coverImageUrl\": \"https://example.com/cover.jpg\",\n  \"startsAt\": \"2026-09-01T18:00:00Z\",\n  \"endsAt\": \"2026-09-01T22:00:00Z\",\n  \"timezone\": \"Europe/Belgrade\",\n  \"attendanceMode\": \"IN_PERSON\",\n  \"commercialMode\": \"PAID\",\n  \"capacity\": 200,\n  \"tags\": [\"tech\", \"networking\"],\n  \"currency\": \"RSD\",\n  \"visibility\": \"PUBLIC\",\n  \"paymentProvider\": \"MOCK\",\n  \"location\": {\n    \"name\": \"Startit Centar\",\n    \"city\": \"Belgrade\",\n    \"address\": \"Savska 5\"\n  }\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/events",
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "events"]
             },
-            "description": "currency/paymentProvider/visibility fall back to defaults if omitted. Provide `location` (create-or-reuse) OR `locationId` (reuse) OR neither."
+            "description": "name, startsAt, endsAt, timezone (IANA) are required. descriptionHtml is sanitized server-side. attendanceMode (IN_PERSON default), commercialMode (FREE default; FREE forces paymentProvider=NONE), currency/paymentProvider/visibility fall back to defaults if omitted. Provide `location` (create-or-reuse) OR `locationId` (reuse) OR neither."
           }
         },
         {
@@ -250,18 +250,6 @@
               "path": ["api", "v1", "events", "{{eventId}}", "publish"]
             },
             "description": "Requires at least one active ticket type."
-          }
-        },
-        {
-          "name": "Unpublish event",
-          "request": {
-            "method": "POST",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/events/{{eventId}}/unpublish",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "events", "{{eventId}}", "unpublish"]
-            }
           }
         },
         {

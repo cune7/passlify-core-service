@@ -46,7 +46,7 @@ class SchemaMigrationIntegrationTest extends AbstractIntegrationTest {
         assertThat(reloaded.getTags()).containsExactly("festival", "summer");
         assertThat(reloaded.getCurrency()).isEqualTo("RSD");
         assertThat(reloaded.getStatus()).isEqualTo(EventStatus.DRAFT);
-        assertThat(reloaded.getPaymentProvider()).isEqualTo(PaymentProvider.MOCK);
+        assertThat(reloaded.getPaymentProvider()).isEqualTo(PaymentProvider.NONE);
         assertThat(reloaded.getCreatedAt()).isNotNull();
 
         TicketType vip = new TicketType();

@@ -2,13 +2,23 @@ package com.passlify.core.payment;
 
 /**
  * Which payment adapter handles an event's checkout. The organizer selects this
- * per event. {@code MOCK} fully simulates the pay flow (used for the MVP and for
- * free/RSD orders without an external account); {@code MANUAL} is bank-transfer /
- * admin-confirmed; real processors (STRIPE, and later a Serbian gateway) plug in
- * as new adapter implementations + a migration widening the DB check constraint.
+ * per event (EVENT_DOMAIN_SPEC §10).
+ *
+ * <ul>
+ *   <li>{@code NONE} — free event; no payment processing.</li>
+ *   <li>{@code MOCK} — fully simulates the pay flow (MVP + automated tests).</li>
+ *   <li>{@code MANUAL} — bank-transfer / cash / admin-confirmed reconciliation.</li>
+ *   <li>{@code RAIFFEISEN} — Serbian Raiffeisen e-commerce card integration (RSD).</li>
+ *   <li>{@code STRIPE} — Stripe Checkout / Payment Intents.</li>
+ * </ul>
+ *
+ * Real processors plug in as new adapter implementations; the organizer may only
+ * select a provider that has an active, admin-approved capability (later phase).
  */
 public enum PaymentProvider {
+    NONE,
     MOCK,
     MANUAL,
+    RAIFFEISEN,
     STRIPE
 }

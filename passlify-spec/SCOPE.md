@@ -23,7 +23,7 @@ Everything else is deferred until that spine is solid.
   guest (email only) or authenticated.
 
 ### Events & ticket types
-- CRUD events (organizer scope), publish/unpublish, cancel.
+- CRUD events (organizer scope), publish (one-way), cancel.
 - CRUD ticket types within an event (price, quantity, sale window, per-order cap).
 - Public listing + public event detail (only `PUBLISHED` + `PUBLIC`).
 

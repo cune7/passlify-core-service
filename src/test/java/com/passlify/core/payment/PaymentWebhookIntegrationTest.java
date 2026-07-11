@@ -96,6 +96,7 @@ class PaymentWebhookIntegrationTest extends AbstractIntegrationTest {
         event.setOrganizerId("organizer-1");
         event.setStatus(EventStatus.PUBLISHED);
         event.setVisibility(Visibility.PUBLIC);
+        event.setPaymentProvider(PaymentProvider.MOCK);
         Instant start = Instant.now().plus(10, ChronoUnit.DAYS);
         event.setStartsAt(start);
         event.setEndsAt(start.plus(4, ChronoUnit.HOURS));

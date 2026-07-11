@@ -25,7 +25,7 @@ custom attendee-form fields, an organizer dashboard, and an organization/company
 
 ## Events  `com.passlify.core.event`
 - ✅ CRUD (organizer-scoped): `POST /api/v1/events`, `GET /{id}`, `GET` (list), `PATCH /{id}`.
-- ✅ Lifecycle: `POST /{id}/publish`, `/unpublish`, `/cancel`. `EventStatus`: DRAFT · PUBLISHED · CANCELLED · COMPLETED.
+- ✅ Lifecycle: `POST /{id}/publish` (one-way — no unpublish), `/cancel`. `EventStatus`: DRAFT · PUBLISHED · CANCELLED · COMPLETED.
 - ✅ Paid events gated on a complete `COMPANY` organization (see `organization-domain-model`).
 - ✅ Public read API: `GET /api/v1/public/events` (list) + `GET /api/v1/public/events/{slug}` — only PUBLISHED + PUBLIC.
 

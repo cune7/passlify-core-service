@@ -1,5 +1,6 @@
 # Memory Index
 
+- [Don't change specs without asking](dont-change-specs-without-asking.md) — never edit passlify-spec/ domain specs unprompted; report gaps and wait for approval
 - [Next work: Stripe integration](next-work-stripe-integration.md) — replace MockPaymentGateway with real Stripe (agreed next task)
 - [Keep prod compose in sync](keep-prod-compose-in-sync.md) — maintain ci/docker-compose.prod.yml + .env.prod.example as project evolves
 - [Keep Postman collection in sync](keep-postman-collection-in-sync.md) — update docs/ Postman collection as API endpoints change

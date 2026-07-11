@@ -126,7 +126,8 @@ class AttendeeCustomFieldIntegrationTest extends AbstractIntegrationTest {
         Instant start = Instant.now().plus(20, ChronoUnit.DAYS);
         Event event = eventService.create(new CreateEventRequest(
                 "Conf 2026", "desc", null, start, start.plus(8, ChronoUnit.HOURS),
-                null, null, null, 500, List.of(), "RSD", Visibility.PUBLIC, null));
+                "Europe/Belgrade", null, null, null, null, null, 500, List.of(),
+                "RSD", Visibility.PUBLIC, null));
 
         customFieldService.create(event.getId(), new CreateCustomFieldRequest(
                 "company", "Company", FieldType.TEXT, FieldScope.PER_PURCHASE, true, null, 0));

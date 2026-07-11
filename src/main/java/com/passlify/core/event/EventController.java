@@ -61,11 +61,6 @@ public class EventController {
         return EventResponse.from(eventService.publish(id));
     }
 
-    @PostMapping("/{id}/unpublish")
-    public EventResponse unpublish(@PathVariable UUID id) {
-        return EventResponse.from(eventService.unpublish(id));
-    }
-
     @PostMapping("/{id}/cancel")
     public ResponseEntity<EventResponse> cancel(@PathVariable UUID id) {
         return ResponseEntity.ok(EventResponse.from(eventService.cancel(id)));

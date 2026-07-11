@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.passlify.core.common.error.ApiException;
 import com.passlify.core.common.error.ErrorCode;
 import com.passlify.core.event.dto.CreateEventRequest;
+import com.passlify.core.payment.PaymentProvider;
 import com.passlify.core.organization.OrganizationKind;
 import com.passlify.core.organization.OrganizationService;
 import com.passlify.core.organization.dto.UpsertOrganizationRequest;
@@ -94,7 +95,8 @@ class EventServiceIntegrationTest extends AbstractIntegrationTest {
         Instant start = Instant.now().plus(30, ChronoUnit.DAYS);
         return new CreateEventRequest(
                 name, "desc", null, start, start.plus(4, ChronoUnit.HOURS),
-                null, null, null, 500, List.of("test"), "RSD", Visibility.PUBLIC, null);
+                "Europe/Belgrade", null, CommercialMode.PAID, null, null, null, 500,
+                List.of("test"), "RSD", Visibility.PUBLIC, PaymentProvider.MOCK);
     }
 
     private void authenticate(String subject, String... roles) {

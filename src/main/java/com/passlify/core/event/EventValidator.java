@@ -8,9 +8,9 @@ import java.time.Instant;
 import org.springframework.stereotype.Component;
 
 /**
- * All event precondition checks: date sanity and the publish/unpublish/cancel
- * lifecycle guards (DOMAIN §2.3). Injected into {@link EventService}, which keeps
- * loading, ownership and state mutation.
+ * All event precondition checks: date sanity and the publish/cancel lifecycle
+ * guards (DOMAIN §2.3). Publishing is one-way — there is no unpublish. Injected
+ * into {@link EventService}, which keeps loading, ownership and state mutation.
  */
 @Component
 public class EventValidator {
@@ -47,15 +47,13 @@ public class EventValidator {
         if (ticketTypes.countByEventIdAndActiveTrue(e.getId()) == 0) {
             throw ApiException.invalidState("Event needs at least one active ticket type to publish");
         }
-        // Paid events are B2B: the organizer must have a complete company profile.
-        if (ticketTypes.existsByEventIdAndActiveTrueAndPriceMinorGreaterThan(e.getId(), 0L)) {
+        // Commercial mode is explicit (§9), not inferred from price. Paid events are
+        // B2B: the organizer must have a complete company profile and a real provider.
+        if (e.getCommercialMode() == CommercialMode.PAID) {
             organizationValidator.assertCanSellPaidEvents(e.getOrganizerId());
-        }
-    }
-
-    public void assertUnpublishable(Event e) {
-        if (e.getStatus() != EventStatus.PUBLISHED) {
-            throw ApiException.invalidState("Only a published event can be unpublished");
+            if (e.getPaymentProvider() == com.passlify.core.payment.PaymentProvider.NONE) {
+                throw ApiException.invalidState("A paid event requires a payment provider");
+            }
         }
     }
 
