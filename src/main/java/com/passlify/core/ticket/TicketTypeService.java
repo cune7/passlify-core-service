@@ -2,6 +2,7 @@ package com.passlify.core.ticket;
 
 import com.passlify.core.common.error.ApiException;
 import com.passlify.core.event.Event;
+import com.passlify.core.event.EventCapability;
 import com.passlify.core.event.EventService;
 import com.passlify.core.ticket.dto.CreateTicketTypeRequest;
 import com.passlify.core.ticket.dto.UpdateTicketTypeRequest;
@@ -36,7 +37,7 @@ TicketTypeService {
 
     @Transactional
     public TicketType create(UUID eventId, CreateTicketTypeRequest req) {
-        Event event = eventService.getOwned(eventId);   // ownership + existence
+        Event event = eventService.getForCapability(eventId, EventCapability.CONFIGURE_TICKETS);
         validator.validateSalesWindow(req.salesStartAt(), req.salesEndAt());
 
         TicketType t = new TicketType();
@@ -60,7 +61,7 @@ TicketTypeService {
 
     @Transactional(readOnly = true)
     public List<TicketType> listForEvent(UUID eventId) {
-        eventService.getOwned(eventId);   // ownership + existence
+        eventService.getForCapability(eventId, EventCapability.VIEW);   // participation + existence
         return ticketTypes.findByEventIdOrderBySortOrderAscCreatedAtAsc(eventId);
     }
 
@@ -127,7 +128,7 @@ TicketTypeService {
     private TicketType loadOwned(UUID ticketTypeId) {
         TicketType t = ticketTypes.findById(ticketTypeId)
                 .orElseThrow(() -> ApiException.notFound("Ticket type not found: " + ticketTypeId));
-        eventService.getOwned(t.getEvent().getId());   // ownership check, throws 404 if not owned
+        eventService.getForCapability(t.getEvent().getId(), EventCapability.CONFIGURE_TICKETS);
         return t;
     }
 }

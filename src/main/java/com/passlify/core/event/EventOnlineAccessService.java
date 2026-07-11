@@ -37,7 +37,7 @@ public class EventOnlineAccessService {
 
     @Transactional
     public EventOnlineAccessResponse update(UUID eventId, EventOnlineAccessRequest req) {
-        Event event = events.getOwned(eventId);
+        Event event = events.getForCapability(eventId, EventCapability.EDIT_DETAILS);
         if (req.publicUrl() != null && !req.publicUrl().isBlank()
                 && !req.publicUrl().startsWith("https://")) {
             throw ApiException.validation("Online access URL must use https");

@@ -5,6 +5,7 @@ import com.passlify.core.dashboard.dto.OrderSummary;
 import com.passlify.core.dashboard.dto.SalesSummaryResponse;
 import com.passlify.core.dashboard.dto.SalesSummaryResponse.TicketTypeSales;
 import com.passlify.core.event.Event;
+import com.passlify.core.event.EventCapability;
 import com.passlify.core.event.EventService;
 import com.passlify.core.issuance.Ticket;
 import com.passlify.core.issuance.TicketRepository;
@@ -44,19 +45,19 @@ public class DashboardService {
 
     @Transactional(readOnly = true)
     public Page<OrderSummary> listOrders(UUID eventId, Pageable pageable) {
-        eventService.getOwned(eventId);   // ownership + existence
+        eventService.getForCapability(eventId, EventCapability.VIEW_REPORTS);   // ownership + existence
         return orders.findByEventId(eventId, pageable).map(OrderSummary::from);
     }
 
     @Transactional(readOnly = true)
     public Page<AttendeeRow> listAttendees(UUID eventId, Pageable pageable) {
-        eventService.getOwned(eventId);
+        eventService.getForCapability(eventId, EventCapability.VIEW_REPORTS);
         return tickets.findByEventId(eventId, pageable).map(AttendeeRow::from);
     }
 
     @Transactional(readOnly = true)
     public SalesSummaryResponse salesSummary(UUID eventId) {
-        Event event = eventService.getOwned(eventId);
+        Event event = eventService.getForCapability(eventId, EventCapability.VIEW_REPORTS);
         List<TicketTypeSales> byType = ticketTypes
                 .findByEventIdOrderBySortOrderAscCreatedAtAsc(eventId).stream()
                 .map(TicketTypeSales::from)
@@ -73,7 +74,7 @@ public class DashboardService {
     /** Attendee list as CSV (RFC-4180 quoting). */
     @Transactional(readOnly = true)
     public String attendeesCsv(UUID eventId) {
-        eventService.getOwned(eventId);
+        eventService.getForCapability(eventId, EventCapability.VIEW_REPORTS);
         StringBuilder sb = new StringBuilder();
         sb.append("serial_number,ticket_type,attendee_name,email,status,checked_in_at,order_id\n");
         for (Ticket t : tickets.findByEventIdOrderBySerialNumberAsc(eventId)) {

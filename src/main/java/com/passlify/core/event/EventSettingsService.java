@@ -42,7 +42,7 @@ public class EventSettingsService {
     @Transactional
     public EventSettingsResponse update(UUID eventId, EventSettingsRequest req) {
         validator.validate(req);
-        Event event = events.getOwned(eventId);
+        Event event = events.getForCapability(eventId, EventCapability.EDIT_DETAILS);
 
         EventSettings s = settings.findById(eventId).orElseGet(() -> {
             EventSettings created = new EventSettings();

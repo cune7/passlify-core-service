@@ -50,6 +50,7 @@ public class EventService {
     private final EventAuditService audit;
     private final EventPublicationReadinessValidator readiness;
     private final EventCollaboratorService collaborators;
+    private final EventAuthorization authorization;
     private final ApplicationEventPublisher domainEvents;
     private final String defaultCurrency;
 
@@ -64,6 +65,7 @@ public class EventService {
                         EventAuditService audit,
                         EventPublicationReadinessValidator readiness,
                         EventCollaboratorService collaborators,
+                        EventAuthorization authorization,
                         ApplicationEventPublisher domainEvents,
                         @Value("${passlify.default-currency:RSD}") String defaultCurrency) {
         this.events = events;
@@ -77,6 +79,7 @@ public class EventService {
         this.audit = audit;
         this.readiness = readiness;
         this.collaborators = collaborators;
+        this.authorization = authorization;
         this.domainEvents = domainEvents;
         this.defaultCurrency = defaultCurrency;
     }
@@ -124,7 +127,17 @@ public class EventService {
 
     @Transactional(readOnly = true)
     public Event getOwned(UUID id) {
-        return loadOwned(id);
+        return load(id, EventCapability.VIEW);
+    }
+
+    /**
+     * Loads an event enforcing a specific capability (permission matrix §13.2). Used by
+     * sibling services (tickets, dashboard, settings) so collaborator roles are honoured
+     * consistently across the event's surface.
+     */
+    @Transactional(readOnly = true)
+    public Event getForCapability(UUID id, EventCapability capability) {
+        return load(id, capability);
     }
 
     @Transactional(readOnly = true)
@@ -137,7 +150,12 @@ public class EventService {
 
     @Transactional
     public Event update(UUID id, UpdateEventRequest req) {
-        Event e = loadOwned(id);
+        Event e = load(id, EventCapability.EDIT_DETAILS);
+        // Commercial fields need the stronger EDIT_COMMERCIAL capability (EDITOR cannot).
+        if (touchesCommercial(req) && !authorization.has(e, EventCapability.EDIT_COMMERCIAL)) {
+            throw ApiException.of(ErrorCode.FORBIDDEN,
+                    "Your role cannot change commercial settings (mode, currency, provider)");
+        }
         // Optimistic concurrency: reject a stale edit up front with a clean 409
         // rather than relying only on the flush-time OptimisticLockException.
         if (req.version() != null && req.version() != e.getVersion()) {
@@ -206,7 +224,7 @@ public class EventService {
 
     @Transactional
     public Event publish(UUID id) {
-        Event e = loadOwned(id);
+        Event e = load(id, EventCapability.MANAGE_LIFECYCLE);
         validator.assertPublishable(e);
         e.setStatus(EventStatus.PUBLISHED);
         audit.record(e, EventAuditAction.EVENT_PUBLISHED, null, null);
@@ -216,7 +234,7 @@ public class EventService {
 
     @Transactional
     public Event cancel(UUID id, String reason) {
-        Event e = loadOwned(id);
+        Event e = load(id, EventCapability.MANAGE_LIFECYCLE);
         validator.assertCancellable(e);
         e.setStatus(EventStatus.CANCELLED);
         audit.record(e, EventAuditAction.EVENT_CANCELLED, null, reason);
@@ -226,7 +244,7 @@ public class EventService {
 
     @Transactional
     public Event complete(UUID id) {
-        Event e = loadOwned(id);
+        Event e = load(id, EventCapability.MANAGE_LIFECYCLE);
         validator.assertCompletable(e);
         e.setStatus(EventStatus.COMPLETED);
         audit.record(e, EventAuditAction.EVENT_COMPLETED, null, null);
@@ -236,7 +254,7 @@ public class EventService {
 
     @Transactional(readOnly = true)
     public PublicationReadinessResponse readiness(UUID id) {
-        return readiness.check(loadOwned(id));
+        return readiness.check(load(id, EventCapability.VIEW));
     }
 
     /** Transfer ownership to an accepted collaborator (delegates; enforces owner/admin). */
@@ -247,21 +265,26 @@ public class EventService {
 
     @Transactional(readOnly = true)
     public Page<EventAuditResponse> listAudit(UUID id, Pageable pageable) {
-        loadOwned(id); // ownership / existence
+        load(id, EventCapability.VIEW); // participation / existence
         return audit.list(id, pageable);
     }
 
     // ---- helpers -----------------------------------------------------------
 
-    /** Loads an event the caller is allowed to manage, else 404 (no existence leak). */
-    private Event loadOwned(UUID id) {
-        if (currentUser.isAdmin()) {
-            return events.findById(id)
-                    .orElseThrow(() -> ApiException.notFound("Event not found: " + id));
-        }
-        String organizer = currentUser.requireSubject();
-        return events.findByIdAndOrganizerId(id, organizer)
+    /**
+     * Loads an event and enforces the given capability against the caller's effective
+     * role (permission matrix §13.2). Non-participants get 404 (no existence leak);
+     * participants lacking the capability get 403.
+     */
+    private Event load(UUID id, EventCapability capability) {
+        Event e = events.findById(id)
                 .orElseThrow(() -> ApiException.notFound("Event not found: " + id));
+        authorization.require(e, capability);
+        return e;
+    }
+
+    private static boolean touchesCommercial(UpdateEventRequest req) {
+        return req.commercialMode() != null || req.currency() != null || req.paymentProvider() != null;
     }
 
     /** Captures the audited scalar fields of an event for before/after diffing. */

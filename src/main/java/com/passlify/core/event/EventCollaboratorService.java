@@ -10,7 +10,6 @@ import com.passlify.core.event.dto.UpdateCollaboratorRoleRequest;
 import com.passlify.core.notification.EmailService;
 import java.time.Instant;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,22 +23,23 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class EventCollaboratorService {
 
-    private static final Set<EventRole> MANAGERIAL = Set.of(EventRole.OWNER, EventRole.MANAGER);
-
     private final EventRepository events;
     private final EventCollaboratorRepository collaborators;
     private final CurrentUser currentUser;
+    private final EventAuthorization authorization;
     private final EventAuditService audit;
     private final EmailService email;
 
     public EventCollaboratorService(EventRepository events,
                                     EventCollaboratorRepository collaborators,
                                     CurrentUser currentUser,
+                                    EventAuthorization authorization,
                                     EventAuditService audit,
                                     EmailService email) {
         this.events = events;
         this.collaborators = collaborators;
         this.currentUser = currentUser;
+        this.authorization = authorization;
         this.audit = audit;
         this.email = email;
     }
@@ -183,12 +183,7 @@ public class EventCollaboratorService {
 
     /** Only the current owner or an ADMIN (used for ownership transfer). */
     private void requireOwnerOrAdmin(Event event) {
-        if (currentUser.isAdmin()) {
-            return;
-        }
-        if (!currentUser.requireSubject().equals(event.getOrganizerId())) {
-            throw ApiException.of(ErrorCode.FORBIDDEN, "Only the event owner may transfer ownership");
-        }
+        authorization.require(event, EventCapability.TRANSFER_OWNERSHIP);
     }
 
     private Event loadEvent(UUID eventId) {
@@ -203,19 +198,6 @@ public class EventCollaboratorService {
 
     /** Owner, ADMIN, or an accepted OWNER/MANAGER collaborator may manage collaborators. */
     private void requireCanManage(Event event) {
-        if (currentUser.isAdmin()) {
-            return;
-        }
-        String subject = currentUser.requireSubject();
-        if (subject.equals(event.getOrganizerId())) {
-            return;
-        }
-        boolean managerial = collaborators.findByEventIdAndUserId(event.getId(), subject)
-                .filter(c -> c.getInvitationStatus() == InvitationStatus.ACCEPTED)
-                .map(c -> MANAGERIAL.contains(c.getRole()))
-                .orElse(false);
-        if (!managerial) {
-            throw ApiException.of(ErrorCode.FORBIDDEN, "You may not manage collaborators for this event");
-        }
+        authorization.require(event, EventCapability.MANAGE_COLLABORATORS);
     }
 }
