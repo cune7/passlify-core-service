@@ -39,7 +39,8 @@ custom attendee-form fields, an organizer dashboard, and an organization/company
 - 🟡 Collaborators (§13, Phase 2 — in progress): `EventCollaborator` (event-scoped roles OWNER/MANAGER/EDITOR/VIEWER/CHECK_IN_OPERATOR); creator stored as ACCEPTED OWNER; invite by email → accept links Keycloak sub; `GET/POST/PATCH/DELETE /events/{id}/collaborators` + `/accept`; managed by owner/admin/manager; audited + email notification. Migration V10.
 - ✅ Ownership transfer (§13.4): `POST /events/{id}/transfer-ownership` (owner/admin, explicit confirm) → target becomes OWNER, previous owner becomes MANAGER, `organizerId` moves; audited. (Org reassignment for paid events deferred.)
 - ✅ Authorization matrix (§13.2): `EventAuthorization` + `EventCapability` enforce role→capability across the event surface — VIEW / EDIT_DETAILS / EDIT_COMMERCIAL / MANAGE_LIFECYCLE / CONFIGURE_TICKETS / VIEW_REPORTS / MANAGE_COLLABORATORS / TRANSFER_OWNERSHIP. Applied in event edit/lifecycle, ticket config, dashboard, settings/online-access. Non-participants get 404, insufficient role 403.
-- ⏳ Remaining: signed invitation tokens + invite expiry (§38). Later phases: payment-capability approval + real Stripe/Raiffeisen (Phase 3), slug redirects + auto-completion (Phase 4). Exact §19.1 category catalog is a reference-data follow-up.
+- ✅ Signed invitation tokens (§38): `InvitationTokenService` (HMAC-SHA256) issues an expiring token on invite (14-day TTL); `POST /collaborators/accept` verifies signature + expiry + email match; lapsed invites flip to EXPIRED. Migration V11.
+- ⏳ **Phase 2 complete.** Later phases: payment-capability approval + real Stripe/Raiffeisen (Phase 3), slug redirects + auto-completion (Phase 4). Exact §19.1 category catalog is a reference-data follow-up.
 
 ## Ticket types  `com.passlify.core.ticket`
 - ✅ CRUD within an event: `POST/GET /api/v1/events/{eventId}/ticket-types`, `PATCH/DELETE /api/v1/ticket-types/{id}`.

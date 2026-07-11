@@ -95,7 +95,7 @@ class EventAuthorizationIntegrationTest extends AbstractIntegrationTest {
         // Caller is the owner here.
         CollaboratorResponse invited = collaborators.invite(eventId, new InviteCollaboratorRequest(email, role));
         authenticate(subject, email, "ORGANIZER");
-        collaborators.accept(eventId, invited.id());
+        collaborators.accept(eventId, invited.acceptToken());
         authenticate("owner-1", "owner@x.rs", "ORGANIZER");
     }
 

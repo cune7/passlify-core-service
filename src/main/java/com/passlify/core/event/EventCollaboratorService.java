@@ -9,6 +9,7 @@ import com.passlify.core.event.dto.TransferOwnershipRequest;
 import com.passlify.core.event.dto.UpdateCollaboratorRoleRequest;
 import com.passlify.core.notification.EmailService;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
@@ -23,25 +24,33 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class EventCollaboratorService {
 
+    /** Invitations lapse after this window unless accepted. */
+    private static final long INVITE_TTL_DAYS = 14;
+    /** Sentinel expiry for rows that never expire (owner / accepted). */
+    private static final Instant NEVER = Instant.parse("2999-01-01T00:00:00Z");
+
     private final EventRepository events;
     private final EventCollaboratorRepository collaborators;
     private final CurrentUser currentUser;
     private final EventAuthorization authorization;
     private final EventAuditService audit;
     private final EmailService email;
+    private final InvitationTokenService tokens;
 
     public EventCollaboratorService(EventRepository events,
                                     EventCollaboratorRepository collaborators,
                                     CurrentUser currentUser,
                                     EventAuthorization authorization,
                                     EventAuditService audit,
-                                    EmailService email) {
+                                    EmailService email,
+                                    InvitationTokenService tokens) {
         this.events = events;
         this.collaborators = collaborators;
         this.currentUser = currentUser;
         this.authorization = authorization;
         this.audit = audit;
         this.email = email;
+        this.tokens = tokens;
     }
 
     /** Registers the creating organizer as an ACCEPTED OWNER. Called from event creation. */
@@ -55,6 +64,7 @@ public class EventCollaboratorService {
         owner.setInvitationStatus(InvitationStatus.ACCEPTED);
         owner.setInvitedBy(subject);
         owner.setInvitedAt(Instant.now());
+        owner.setExpiresAt(NEVER);
         owner.setAcceptedAt(Instant.now());
         collaborators.save(owner);
     }
@@ -79,20 +89,23 @@ public class EventCollaboratorService {
             throw ApiException.of(ErrorCode.CONFLICT, "That email is already a collaborator on this event");
         });
 
+        Instant now = Instant.now();
         EventCollaborator c = new EventCollaborator();
         c.setEventId(eventId);
         c.setEmail(req.email().trim());
         c.setRole(req.role());
         c.setInvitationStatus(InvitationStatus.PENDING);
         c.setInvitedBy(currentUser.requireSubject());
-        c.setInvitedAt(Instant.now());
+        c.setInvitedAt(now);
+        c.setExpiresAt(now.plus(INVITE_TTL_DAYS, ChronoUnit.DAYS));
         EventCollaborator saved = collaborators.save(c);
+        String token = tokens.issue(saved.getId(), saved.getExpiresAt());
 
         audit.record(event, EventAuditAction.COLLABORATOR_INVITED, null,
                 "Invited " + req.email() + " as " + req.role());
         email.sendCollaboratorInvite(saved.getEmail(), event.getName(), req.role().name(),
-                currentUser.displayName());
-        return CollaboratorResponse.from(saved);
+                currentUser.displayName(), token);
+        return CollaboratorResponse.withToken(saved, token);
     }
 
     @Transactional
@@ -124,13 +137,22 @@ public class EventCollaboratorService {
         audit.record(event, EventAuditAction.COLLABORATOR_REMOVED, null, "Removed " + c.getEmail());
     }
 
-    /** The invited user accepts, linking their Keycloak subject to the invitation. */
+    /**
+     * The invited user accepts using the signed token from their invite email. The
+     * token proves the invitation (its id is not guessable) and carries the expiry; the
+     * caller's account email must still match the invited address.
+     */
     @Transactional
-    public CollaboratorResponse accept(UUID eventId, UUID collaboratorId) {
+    public CollaboratorResponse accept(UUID eventId, String token) {
         Event event = loadEvent(eventId);
-        EventCollaborator c = loadCollaborator(eventId, collaboratorId);
+        InvitationTokenService.VerifiedInvite verified = tokens.verify(token);
+        EventCollaborator c = loadCollaborator(eventId, verified.collaboratorId());
         if (c.getInvitationStatus() != InvitationStatus.PENDING) {
             throw ApiException.invalidState("This invitation is not pending");
+        }
+        if (Instant.now().isAfter(c.getExpiresAt())) {
+            c.setInvitationStatus(InvitationStatus.EXPIRED);
+            throw ApiException.invalidState("This invitation has expired");
         }
         String invitedEmail = c.getEmail();
         String callerEmail = currentUser.email().orElseThrow(() -> ApiException.of(

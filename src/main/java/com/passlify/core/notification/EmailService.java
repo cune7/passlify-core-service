@@ -74,7 +74,8 @@ public class EmailService {
      * Notifies an invited collaborator. Best-effort: a mail failure must not break the
      * invitation (the record is persisted regardless).
      */
-    public void sendCollaboratorInvite(String toEmail, String eventName, String role, String inviterName) {
+    public void sendCollaboratorInvite(String toEmail, String eventName, String role,
+                                       String inviterName, String acceptToken) {
         if (!enabled) {
             log.debug("Mail disabled; skipping collaborator invite to {}", toEmail);
             return;
@@ -87,7 +88,8 @@ public class EmailService {
             helper.setSubject("You've been invited to help manage \"" + eventName + "\"");
             helper.setText(inviterName + " invited you to collaborate on \"" + eventName
                     + "\" as " + role + ".\n\nSign in to Passlify (" + baseUrl
-                    + ") with this email address to accept the invitation.\n");
+                    + ") with this email address and accept using this invitation token:\n\n"
+                    + acceptToken + "\n");
             mailSender.send(message);
             log.info("Sent collaborator invite to {} for \"{}\"", toEmail, eventName);
         } catch (MailException | jakarta.mail.MessagingException e) {

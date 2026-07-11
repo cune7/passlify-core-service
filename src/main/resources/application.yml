@@ -37,6 +37,8 @@ passlify:
   default-currency: ${PASSLIFY_DEFAULT_CURRENCY:RSD}
   # HMAC key for signing ticket QR tokens (used from the issuance slice onward).
   qr-secret: ${PASSLIFY_QR_SECRET:dev-only-change-me-min-32-bytes-secret!!}
+  # HMAC key for signing collaborator invitation tokens.
+  invite-secret: ${PASSLIFY_INVITE_SECRET:dev-only-change-me-min-32-bytes-invite!!}
   base-url: ${APP_BASE_URL:http://localhost:8081}
   mail:
     from: ${PASSLIFY_MAIL_FROM:tickets@passlify.rs}

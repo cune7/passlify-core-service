@@ -47,6 +47,10 @@ public class EventCollaborator extends BaseEntity {
     @Column(name = "invited_at", nullable = false)
     private Instant invitedAt;
 
+    /** When a PENDING invitation lapses; acceptance after this is rejected. */
+    @Column(name = "expires_at", nullable = false)
+    private Instant expiresAt;
+
     @Column(name = "accepted_at")
     private Instant acceptedAt;
 }

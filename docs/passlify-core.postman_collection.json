@@ -393,7 +393,7 @@
               "listen": "test",
               "script": {
                 "type": "text/javascript",
-                "exec": ["pm.collectionVariables.set('collaboratorId', pm.response.json().id);"]
+                "exec": ["const b = pm.response.json();", "pm.collectionVariables.set('collaboratorId', b.id);", "pm.collectionVariables.set('inviteToken', b.acceptToken);"]
               }
             }
           ],
@@ -416,13 +416,17 @@
           "name": "Accept invitation",
           "request": {
             "method": "POST",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/events/{{eventId}}/collaborators/{{collaboratorId}}/accept",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "events", "{{eventId}}", "collaborators", "{{collaboratorId}}", "accept"]
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{inviteToken}}\"\n}"
             },
-            "description": "Called by the invitee (their token email must match the invite)."
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/events/{{eventId}}/collaborators/accept",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "events", "{{eventId}}", "collaborators", "accept"]
+            },
+            "description": "Called by the invitee (token from the invite email; their account email must match)."
           }
         },
         {

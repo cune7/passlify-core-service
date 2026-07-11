@@ -61,9 +61,22 @@ class EventCollaboratorIntegrationTest extends AbstractIntegrationTest {
 
         // The invitee accepts (email claim must match the invite).
         authenticate("user-2", "friend@x.rs", "ORGANIZER");
-        CollaboratorResponse accepted = collaborators.accept(eventId, invited.id());
+        CollaboratorResponse accepted = collaborators.accept(eventId, invited.acceptToken());
         assertThat(accepted.invitationStatus()).isEqualTo(InvitationStatus.ACCEPTED);
         assertThat(accepted.userId()).isEqualTo("user-2");
+    }
+
+    @Test
+    void acceptWithTamperedTokenIsRejected() {
+        authenticate("organizer-1", "owner@x.rs", "ORGANIZER");
+        UUID eventId = eventService.create(event()).getId();
+        CollaboratorResponse invited = collaborators.invite(eventId,
+                new InviteCollaboratorRequest("friend@x.rs", EventRole.EDITOR));
+
+        authenticate("user-2", "friend@x.rs", "ORGANIZER");
+        String tampered = invited.acceptToken() + "AA";
+        assertThatThrownBy(() -> collaborators.accept(eventId, tampered))
+                .isInstanceOf(ApiException.class);
     }
 
     @Test
@@ -74,7 +87,7 @@ class EventCollaboratorIntegrationTest extends AbstractIntegrationTest {
                 new InviteCollaboratorRequest("friend@x.rs", EventRole.VIEWER));
 
         authenticate("intruder", "someone-else@x.rs", "ORGANIZER");
-        assertThatThrownBy(() -> collaborators.accept(eventId, invited.id()))
+        assertThatThrownBy(() -> collaborators.accept(eventId, invited.acceptToken()))
                 .isInstanceOf(ApiException.class);
     }
 
@@ -115,7 +128,7 @@ class EventCollaboratorIntegrationTest extends AbstractIntegrationTest {
         CollaboratorResponse invited = collaborators.invite(eventId,
                 new InviteCollaboratorRequest("friend@x.rs", EventRole.EDITOR));
         authenticate("user-2", "friend@x.rs", "ORGANIZER");
-        collaborators.accept(eventId, invited.id());
+        collaborators.accept(eventId, invited.acceptToken());
 
         authenticate("organizer-1", "owner@x.rs", "ORGANIZER");
         CollaboratorResponse newOwner = eventService.transferOwnership(eventId,

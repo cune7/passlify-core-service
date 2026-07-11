@@ -1,5 +1,6 @@
 package com.passlify.core.event;
 
+import com.passlify.core.event.dto.AcceptInvitationRequest;
 import com.passlify.core.event.dto.CollaboratorResponse;
 import com.passlify.core.event.dto.InviteCollaboratorRequest;
 import com.passlify.core.event.dto.UpdateCollaboratorRoleRequest;
@@ -55,8 +56,9 @@ public class EventCollaboratorController {
         collaborators.remove(eventId, collaboratorId);
     }
 
-    @PostMapping("/{collaboratorId}/accept")
-    public CollaboratorResponse accept(@PathVariable UUID eventId, @PathVariable UUID collaboratorId) {
-        return collaborators.accept(eventId, collaboratorId);
+    @PostMapping("/accept")
+    public CollaboratorResponse accept(@PathVariable UUID eventId,
+                                       @Valid @RequestBody AcceptInvitationRequest req) {
+        return collaborators.accept(eventId, req.token());
     }
 }
