@@ -17,24 +17,47 @@ class RaiffeisenPaymentGatewayTest {
     private final KeyPair bank = UpcSignatureTest.generate();
 
     private final RaiffeisenPaymentGateway gateway = new RaiffeisenPaymentGateway(
-            "https://ecg.test/go/enter", "1753019", "E7881019", "en",
+            "https://ecg.test/go/enter", "1753019", "E7881019", "en", "https://app.example",
             UpcSignatureTest.pem("PRIVATE KEY", merchant.getPrivate().getEncoded()),
             UpcSignatureTest.pem("PUBLIC KEY", bank.getPublic().getEncoded()));
 
     @Test
-    void createSessionBuildsSignedRedirectFields() {
+    void createSessionPointsAtOurRedirectPage() {
+        Order order = order();
+        CheckoutSession session = gateway.createSession(order, null, null);
+        assertThat(gateway.provider()).isEqualTo(PaymentProvider.RAIFFEISEN);
+        assertThat(session.checkoutUrl())
+                .isEqualTo("https://app.example" + RaiffeisenPaymentGateway.REDIRECT_PATH + session.sessionId());
+        assertThat(session.sessionId()).hasSize(20);
+    }
+
+    @Test
+    void redirectFormAutoPostsSignedFieldsToBank() {
+        String html = gateway.renderRedirectForm(order());
+        assertThat(html).contains("action=\"https://ecg.test/go/enter\"")
+                .contains("name=\"MerchantID\" value=\"1753019\"")
+                .contains("name=\"Currency\" value=\"941\"")
+                .contains("name=\"TotalAmount\" value=\"150000\"")
+                .contains("name=\"Signature\"")
+                .contains("document.forms[0].submit()");
+    }
+
+    @Test
+    void notifyResponseApprovesSuccessAndReversesOtherwise() {
+        String ok = signedCallback("000", "txn-9");
+        assertThat(gateway.isSuccessful(ok)).isTrue();
+        assertThat(gateway.buildNotifyResponse(ok, true))
+                .contains("Response.action=approve").contains("OrderID=ORDER123").contains("TotalAmount=500");
+        assertThat(gateway.buildNotifyResponse(ok, false)).contains("Response.action=reverse");
+        assertThat(gateway.isSuccessful(signedCallback("116", "x"))).isFalse();
+    }
+
+    private Order order() {
         Order order = new Order();
         order.setId(UUID.randomUUID());
         order.setTotalMinor(150_000L);
         order.setCurrency("RSD");
-
-        CheckoutSession session = gateway.createSession(order, null, null);
-        assertThat(gateway.provider()).isEqualTo(PaymentProvider.RAIFFEISEN);
-        assertThat(session.checkoutUrl()).startsWith("https://ecg.test/go/enter?");
-        assertThat(session.checkoutUrl())
-                .contains("Currency=941").contains("TotalAmount=150000")
-                .contains("MerchantID=1753019").contains("Signature=");
-        assertThat(session.sessionId()).hasSize(20);
+        return order;
     }
 
     @Test

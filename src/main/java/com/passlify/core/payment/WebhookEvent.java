@@ -11,8 +11,6 @@ import java.time.Instant;
 import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
 
 /**
  * Idempotency ledger: every received provider webhook is recorded before being
@@ -38,8 +36,9 @@ public class WebhookEvent {
     @Column(nullable = false, length = 120)
     private String type;
 
-    @JdbcTypeCode(SqlTypes.JSON)
-    @Column(columnDefinition = "jsonb")
+    // Raw provider payload for audit/replay — plain text, not JSON: Stripe/mock send
+    // JSON but UPC/Raiffeisen posts form-encoded, so this must not be a jsonb column.
+    @Column(columnDefinition = "text")
     private String payload;
 
     @CreationTimestamp

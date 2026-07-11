@@ -5,7 +5,6 @@ import com.passlify.core.common.error.ErrorCode;
 import com.passlify.core.order.Order;
 import com.passlify.core.payment.PaymentProvider;
 import java.net.URLDecoder;
-import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.security.PrivateKey;
 import java.security.PublicKey;
@@ -21,19 +20,20 @@ import org.springframework.stereotype.Component;
 
 /**
  * Raiffeisen Serbia card payments via the UPC "e-Commerce Connect Gateway"
- * (EVENT_DOMAIN_SPEC §10). Redirect-based: the buyer is sent to the gateway's secure
- * page with RSA-SHA1-signed fields; the result comes back on the pre-registered
- * NOTIFY_URL/SUCCESS_URL, which we verify against the gateway's public key.
+ * (EVENT_DOMAIN_SPEC §10). Redirect-based with RSA-SHA1-signed fields.
  *
- * <p>Activated only when {@code passlify.raiffeisen.enabled=true} + a private key is
- * configured, so the app runs without it in dev/test. SUCCESS/FAILURE/NOTIFY URLs are
- * registered per-terminal at the bank, not sent per request.
+ * <p>Flow: {@code createSession} returns a URL to our own redirect page
+ * ({@link #renderRedirectForm}) which auto-POSTs the signed fields to the bank; the
+ * bank posts the result to the registered NOTIFY_URL, handled with signature
+ * verification ({@link #verifyAndParse}) and answered with the required
+ * {@code Response.action} handshake ({@link #buildNotifyResponse}).
  *
- * <p><b>Scope note (needs live verification):</b> the request/response datafile field
- * order below follows the interface doc (§3–5, §7); confirm against the UPC test server
- * with real merchant credentials. Two HTTP pieces are still to wire for a live flow:
- * the POST-form redirect page and the NOTIFY_URL {@code Response.action=approve}
- * handshake (tracked separately). Tokenization (saved cards) is not implemented.
+ * <p>Activated only when {@code passlify.raiffeisen.enabled=true}. SUCCESS/FAILURE/
+ * NOTIFY URLs are registered per-terminal at the bank, not sent per request.
+ *
+ * <p><b>Needs live verification:</b> the request/response datafile field order, the
+ * NOTIFY response body format, and result codes follow the interface doc; confirm
+ * against the UPC test server with real merchant credentials. Tokenization not done.
  */
 @Component
 @ConditionalOnProperty(prefix = "passlify.raiffeisen", name = "enabled", havingValue = "true")
@@ -44,11 +44,13 @@ public class RaiffeisenPaymentGateway implements PaymentGateway {
             Map.of("RSD", "941", "EUR", "978", "USD", "840", "RUB", "643", "UAH", "980");
     private static final DateTimeFormatter PURCHASE_TIME =
             DateTimeFormatter.ofPattern("yyMMddHHmmss").withZone(ZoneId.systemDefault());
+    public static final String REDIRECT_PATH = "/api/v1/public/payments/raiffeisen/redirect/";
 
     private final String gatewayUrl;
     private final String merchantId;
     private final String terminalId;
     private final String locale;
+    private final String baseUrl;
     private final PrivateKey privateKey;
     private final PublicKey gatewayPublicKey;
 
@@ -57,12 +59,14 @@ public class RaiffeisenPaymentGateway implements PaymentGateway {
             @Value("${passlify.raiffeisen.merchant-id}") String merchantId,
             @Value("${passlify.raiffeisen.terminal-id}") String terminalId,
             @Value("${passlify.raiffeisen.locale:en}") String locale,
+            @Value("${passlify.base-url:http://localhost:8081}") String baseUrl,
             @Value("${passlify.raiffeisen.private-key}") String privateKeyPem,
             @Value("${passlify.raiffeisen.gateway-public-key}") String gatewayPublicKeyPem) {
         this.gatewayUrl = gatewayUrl;
         this.merchantId = merchantId;
         this.terminalId = terminalId;
         this.locale = locale;
+        this.baseUrl = baseUrl;
         this.privateKey = UpcSignature.loadPrivateKey(privateKeyPem);
         this.gatewayPublicKey = UpcSignature.loadPublicKey(gatewayPublicKeyPem);
     }
@@ -72,8 +76,77 @@ public class RaiffeisenPaymentGateway implements PaymentGateway {
         return PaymentProvider.RAIFFEISEN;
     }
 
+    /**
+     * The gateway expects a form POST, so we send the buyer to our own redirect page
+     * (which auto-submits the signed form). The returned sessionId ({@code OrderID})
+     * is stored as the payment's provider session id for correlating the callback.
+     */
     @Override
     public CheckoutSession createSession(Order order, String successUrl, String cancelUrl) {
+        String orderRef = orderRef(order);
+        String checkoutUrl = baseUrl + REDIRECT_PATH + orderRef;
+        return new CheckoutSession(orderRef, checkoutUrl, null);
+    }
+
+    /** Auto-submitting HTML form that POSTs the signed request fields to the bank. */
+    public String renderRedirectForm(Order order) {
+        Map<String, String> fields = buildRequestFields(order);
+        StringBuilder inputs = new StringBuilder();
+        fields.forEach((k, v) -> inputs.append("  <input type=\"hidden\" name=\"")
+                .append(htmlEscape(k)).append("\" value=\"").append(htmlEscape(v)).append("\">\n"));
+        return "<!doctype html>\n<html><head><meta charset=\"utf-8\"><title>Redirecting…</title></head>\n"
+                + "<body onload=\"document.forms[0].submit()\">\n"
+                + "<form method=\"post\" action=\"" + htmlEscape(gatewayUrl) + "\">\n"
+                + inputs
+                + "  <noscript><button type=\"submit\">Continue to payment</button></noscript>\n"
+                + "</form></body></html>";
+    }
+
+    @Override
+    public PaymentEvent verifyAndParse(String rawBody, String signature) {
+        Map<String, String> p = parseForm(rawBody);
+        // Response signature datafile (§Signature Verification):
+        // MerchantId;TerminalId;PurchaseTime;OrderId;Xid;Currency;Amount;SD;TranCode;ApprovalCode;
+        String datafile = String.join(";",
+                nz(p.get("MerchantID")), nz(p.get("TerminalID")), nz(p.get("PurchaseTime")),
+                nz(p.get("OrderID")), nz(p.get("XID")), nz(p.get("Currency")), nz(p.get("TotalAmount")),
+                nz(p.get("SD")), nz(p.get("TranCode")), nz(p.get("ApprovalCode"))) + ";";
+        if (!UpcSignature.verify(datafile, p.get("Signature"), gatewayPublicKey)) {
+            throw ApiException.of(ErrorCode.BAD_SIGNATURE, "Invalid Raiffeisen callback signature");
+        }
+
+        String orderRef = p.get("OrderID");
+        String xid = p.get("XID");
+        PaymentEvent.Type type = isSuccessful(rawBody) ? PaymentEvent.Type.PAID : PaymentEvent.Type.FAILED;
+        String eventId = "rba_" + orderRef + "_" + (xid != null ? xid : p.get("TranCode"));
+        return new PaymentEvent(eventId, type, orderRef, xid, p.get("Rrn"), null);
+    }
+
+    /** §8: TranCode 000 = successful authorization. */
+    public boolean isSuccessful(String rawBody) {
+        return "000".equals(parseForm(rawBody).get("TranCode"));
+    }
+
+    /**
+     * NOTIFY_URL handshake body (§7): the shop must answer with {@code Response.action}
+     * or the gateway auto-reverses the transaction. Echoes the identifying params and
+     * approves a successful auth, otherwise reverses.
+     */
+    public String buildNotifyResponse(String rawBody, boolean approve) {
+        Map<String, String> p = parseForm(rawBody);
+        StringBuilder sb = new StringBuilder();
+        for (String key : new String[] {"TerminalID", "OrderID", "Currency", "TotalAmount", "XID", "PurchaseTime"}) {
+            sb.append(key).append('=').append(nz(p.get(key))).append('\n');
+        }
+        sb.append("Response.action=").append(approve ? "approve" : "reverse").append('\n');
+        sb.append("Response.reason=\n");
+        sb.append("Response.forwardUrl=\n");
+        return sb.toString();
+    }
+
+    // ---- request signing ---------------------------------------------------
+
+    private Map<String, String> buildRequestFields(Order order) {
         String orderRef = orderRef(order);
         String purchaseTime = PURCHASE_TIME.format(Instant.now());
         String amount = String.valueOf(order.getTotalMinor()); // smallest currency units (§4)
@@ -94,30 +167,7 @@ public class RaiffeisenPaymentGateway implements PaymentGateway {
         fields.put("OrderID", orderRef);
         fields.put("locale", locale);
         fields.put("Signature", signature);
-
-        String checkoutUrl = gatewayUrl + "?" + urlEncode(fields);
-        return new CheckoutSession(orderRef, checkoutUrl, null);
-    }
-
-    @Override
-    public PaymentEvent verifyAndParse(String rawBody, String signature) {
-        Map<String, String> p = parseForm(rawBody);
-        // Response signature datafile (§Signature Verification):
-        // MerchantId;TerminalId;PurchaseTime;OrderId;Xid;Currency;Amount;SD;TranCode;ApprovalCode;
-        String datafile = String.join(";",
-                nz(p.get("MerchantID")), nz(p.get("TerminalID")), nz(p.get("PurchaseTime")),
-                nz(p.get("OrderID")), nz(p.get("XID")), nz(p.get("Currency")), nz(p.get("TotalAmount")),
-                nz(p.get("SD")), nz(p.get("TranCode")), nz(p.get("ApprovalCode"))) + ";";
-        if (!UpcSignature.verify(datafile, p.get("Signature"), gatewayPublicKey)) {
-            throw ApiException.of(ErrorCode.BAD_SIGNATURE, "Invalid Raiffeisen callback signature");
-        }
-
-        String orderRef = p.get("OrderID");
-        String xid = p.get("XID");
-        boolean approved = "000".equals(p.get("TranCode")); // §8: 000 = successful authorization
-        PaymentEvent.Type type = approved ? PaymentEvent.Type.PAID : PaymentEvent.Type.FAILED;
-        String eventId = "rba_" + orderRef + "_" + (xid != null ? xid : p.get("TranCode"));
-        return new PaymentEvent(eventId, type, orderRef, xid, p.get("Rrn"), null);
+        return fields;
     }
 
     /** OrderID must be ≤20 chars (§4); a UUID's hex prefix is stable and unique enough. */
@@ -137,17 +187,9 @@ public class RaiffeisenPaymentGateway implements PaymentGateway {
         return v == null ? "" : v;
     }
 
-    private static String urlEncode(Map<String, String> params) {
-        StringBuilder sb = new StringBuilder();
-        params.forEach((k, v) -> {
-            if (sb.length() > 0) {
-                sb.append('&');
-            }
-            sb.append(URLEncoder.encode(k, StandardCharsets.UTF_8))
-                    .append('=')
-                    .append(URLEncoder.encode(v == null ? "" : v, StandardCharsets.UTF_8));
-        });
-        return sb.toString();
+    private static String htmlEscape(String v) {
+        return nz(v).replace("&", "&amp;").replace("<", "&lt;")
+                .replace(">", "&gt;").replace("\"", "&quot;");
     }
 
     private static Map<String, String> parseForm(String body) {
