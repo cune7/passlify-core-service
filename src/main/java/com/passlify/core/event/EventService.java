@@ -330,8 +330,13 @@ public class EventService {
         if (eventTypeId == null) {
             return null;
         }
-        return eventTypes.findById(eventTypeId)
+        EventType type = eventTypes.findById(eventTypeId)
                 .orElseThrow(() -> ApiException.notFound("Event type not found: " + eventTypeId));
+        // Organizers pick a leaf, not a category heading, and only active types (§19.1).
+        if (!type.isSelectable() || !type.isActive()) {
+            throw ApiException.validation("Event type is not selectable: " + type.getCode());
+        }
+        return type;
     }
 
     private Location resolveLocation(UUID locationId, LocationDto dto) {

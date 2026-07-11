@@ -31,8 +31,11 @@ class SchemaMigrationIntegrationTest extends AbstractIntegrationTest {
 
     @Test
     void migrationsApplyAndSeedDataLoads() {
-        // V2 seeds 15 reference rows.
-        assertThat(eventTypes.count()).isEqualTo(15);
+        // V2 seeds 15 leaf types; V9 adds a non-selectable category parent per distinct
+        // category (9), so 24 rows total — 15 of them selectable leaves.
+        assertThat(eventTypes.count()).isEqualTo(24);
+        assertThat(eventTypes.findByActiveTrueOrderBySortOrderAscNameAsc().stream()
+                .filter(EventType::isSelectable).count()).isEqualTo(15);
     }
 
     @Test

@@ -35,7 +35,8 @@ custom attendee-form fields, an organizer dashboard, and an organization/company
 - ✅ Immutable audit trail (`EventAuditEntry`, JSON diff) + `GET /{id}/audit`; domain events published for cross-module reactions.
 - ✅ Paid events gated on a complete `COMPANY` organization (see `organization-domain-model`).
 - ✅ Public read API: `GET /api/v1/public/events` (list, PUBLIC only) + `GET /api/v1/public/events/{slug}` (PUBLIC + UNLISTED; PRIVATE 404s).
-- ⏳ Remaining Phase 1: `EventType` hierarchy (parent/code/selectable) + reseed (§19); collaborators, payment-capability approval, slug redirects, auto-completion are later phases.
+- ✅ `EventType` hierarchy (§19): non-selectable category parents + selectable leaves (`code`/`parent`/`active`/`sortOrder`); create enforces a selectable leaf; `GET /api/v1/public/event-types` catalog. Migration V9.
+- ⏳ Later phases: collaborators/ownership (Phase 2), payment-capability approval + real Stripe/Raiffeisen (Phase 3), slug redirects + auto-completion (Phase 4). Exact §19.1 category catalog is a reference-data follow-up.
 
 ## Ticket types  `com.passlify.core.ticket`
 - ✅ CRUD within an event: `POST/GET /api/v1/events/{eventId}/ticket-types`, `PATCH/DELETE /api/v1/ticket-types/{id}`.

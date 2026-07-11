@@ -105,6 +105,20 @@
               "path": ["api", "v1", "public", "events", "{{slug}}"]
             }
           }
+        },
+        {
+          "name": "List event types (catalog)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/public/event-types",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "public", "event-types"]
+            },
+            "description": "Active event types: non-selectable category parents + selectable leaves. Pick a leaf id for an event's eventTypeId."
+          }
         }
       ]
     },
