@@ -47,12 +47,18 @@ public class OrganizationValidator {
      * Throws INVALID_STATE with an actionable message otherwise.
      */
     public void assertCanSellPaidEvents(String ownerId) {
-        Organization o = organizations.findByOwnerId(ownerId).orElse(null);
-        if (o == null || !o.isBillableCompany()) {
+        if (!canSellPaidEvents(ownerId)) {
             throw ApiException.invalidState(
                     "Paid events require a complete company profile (kind=COMPANY with legal name, "
                             + "VAT/PIB, registration number and address). Set it via PUT /api/v1/me/organization.");
         }
+    }
+
+    /** Non-throwing variant for publication-readiness checks. */
+    public boolean canSellPaidEvents(String ownerId) {
+        return organizations.findByOwnerId(ownerId)
+                .map(Organization::isBillableCompany)
+                .orElse(false);
     }
 
     private static boolean isBlank(String s) {

@@ -62,4 +62,11 @@ public class EventValidator {
             throw ApiException.invalidState("Cannot cancel a completed event");
         }
     }
+
+    /** Only a published event completes; cancelled/draft/already-completed cannot (§24.3). */
+    public void assertCompletable(Event e) {
+        if (e.getStatus() != EventStatus.PUBLISHED) {
+            throw ApiException.invalidState("Only a published event can be completed");
+        }
+    }
 }

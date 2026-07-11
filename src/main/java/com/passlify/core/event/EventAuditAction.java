@@ -1,0 +1,28 @@
+package com.passlify.core.event;
+
+/**
+ * Audited event operations (EVENT_DOMAIN_SPEC §28.4). The full set is declared for
+ * forward compatibility; Phase 1 emits the lifecycle and settings actions.
+ */
+public enum EventAuditAction {
+    EVENT_CREATED,
+    EVENT_UPDATED,
+    EVENT_PUBLISHED,
+    EVENT_CANCELLED,
+    EVENT_COMPLETED,
+    VISIBILITY_CHANGED,
+    COMMERCIAL_MODE_CHANGED,
+    PAYMENT_PROVIDER_ASSIGNED,
+    CURRENCY_CHANGED,
+    LOCATION_CHANGED,
+    SCHEDULE_CHANGED,
+    CONTACT_CHANGED,
+    SETTINGS_CHANGED,
+    COLLABORATOR_INVITED,
+    COLLABORATOR_ACCEPTED,
+    COLLABORATOR_ROLE_CHANGED,
+    COLLABORATOR_REMOVED,
+    OWNERSHIP_TRANSFERRED,
+    ADMIN_OVERRIDE,
+    EVENT_MIGRATED
+}

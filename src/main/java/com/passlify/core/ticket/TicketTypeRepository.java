@@ -22,6 +22,11 @@ public interface TicketTypeRepository extends JpaRepository<TicketType, UUID> {
     /** True if the event has any active, priced ticket type (i.e. it is a paid event). */
     boolean existsByEventIdAndActiveTrueAndPriceMinorGreaterThan(UUID eventId, long priceMinor);
 
+    /** Sum of sellable quantity across active ticket types (for the event-capacity ceiling). */
+    @Query("select coalesce(sum(t.totalQuantity), 0) from TicketType t "
+            + "where t.event.id = :eventId and t.active = true")
+    long sumActiveTotalQuantity(@Param("eventId") UUID eventId);
+
     /**
      * Atomic inventory reservation (no oversell). Increments {@code soldQuantity}
      * only if capacity remains. Returns the number of rows updated: 1 on success,

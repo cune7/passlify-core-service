@@ -7,6 +7,8 @@ import com.passlify.core.common.text.HtmlSanitizationService;
 import com.passlify.core.event.dto.CreateEventRequest;
 import com.passlify.core.event.dto.LocationDto;
 import com.passlify.core.event.dto.UpdateEventRequest;
+import com.passlify.core.event.dto.EventAuditResponse;
+import com.passlify.core.event.dto.PublicationReadinessResponse;
 import com.passlify.core.organization.Organization;
 import com.passlify.core.organization.OrganizationService;
 import com.passlify.core.payment.PaymentProvider;
@@ -14,9 +16,12 @@ import java.security.SecureRandom;
 import java.time.DateTimeException;
 import java.time.Instant;
 import java.time.ZoneId;
+import java.util.LinkedHashMap;
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -40,6 +45,9 @@ public class EventService {
     private final CurrentUser currentUser;
     private final PublicIdGenerator publicIds;
     private final HtmlSanitizationService htmlSanitizer;
+    private final EventAuditService audit;
+    private final EventPublicationReadinessValidator readiness;
+    private final ApplicationEventPublisher domainEvents;
     private final String defaultCurrency;
 
     public EventService(EventRepository events,
@@ -50,6 +58,9 @@ public class EventService {
                         CurrentUser currentUser,
                         PublicIdGenerator publicIds,
                         HtmlSanitizationService htmlSanitizer,
+                        EventAuditService audit,
+                        EventPublicationReadinessValidator readiness,
+                        ApplicationEventPublisher domainEvents,
                         @Value("${passlify.default-currency:RSD}") String defaultCurrency) {
         this.events = events;
         this.eventTypes = eventTypes;
@@ -59,6 +70,9 @@ public class EventService {
         this.currentUser = currentUser;
         this.publicIds = publicIds;
         this.htmlSanitizer = htmlSanitizer;
+        this.audit = audit;
+        this.readiness = readiness;
+        this.domainEvents = domainEvents;
         this.defaultCurrency = defaultCurrency;
     }
 
@@ -95,7 +109,11 @@ public class EventService {
         e.setSlug(generateUniqueSlug(req.name()));
         e.setCreatedBy(subject);
         e.setUpdatedBy(subject);
-        return events.save(e);
+        Event saved = events.save(e);
+        audit.record(saved, EventAuditAction.EVENT_CREATED, null, null);
+        domainEvents.publishEvent(
+                new EventDomainEvent.Created(saved.getId(), saved.getPublicId(), saved.getOrganizerId()));
+        return saved;
     }
 
     @Transactional(readOnly = true)
@@ -120,6 +138,7 @@ public class EventService {
             throw ApiException.of(ErrorCode.CONFLICT,
                     "Event was modified by someone else; reload and retry");
         }
+        Map<String, Object> before = snapshot(e);
 
         Instant newStart = req.startsAt() != null ? req.startsAt() : e.getStartsAt();
         Instant newEnd = req.endsAt() != null ? req.endsAt() : e.getEndsAt();
@@ -172,6 +191,10 @@ public class EventService {
             e.setLocation(resolveLocation(req.locationId(), req.location()));
         }
         e.setUpdatedBy(currentUser.requireSubject());
+        Map<String, Object> changed = diff(before, snapshot(e));
+        if (!changed.isEmpty()) {
+            audit.record(e, EventAuditAction.EVENT_UPDATED, changed, null);
+        }
         return e;
     }
 
@@ -180,15 +203,40 @@ public class EventService {
         Event e = loadOwned(id);
         validator.assertPublishable(e);
         e.setStatus(EventStatus.PUBLISHED);
+        audit.record(e, EventAuditAction.EVENT_PUBLISHED, null, null);
+        domainEvents.publishEvent(new EventDomainEvent.Published(e.getId(), e.getPublicId()));
         return e;
     }
 
     @Transactional
-    public Event cancel(UUID id) {
+    public Event cancel(UUID id, String reason) {
         Event e = loadOwned(id);
         validator.assertCancellable(e);
         e.setStatus(EventStatus.CANCELLED);
+        audit.record(e, EventAuditAction.EVENT_CANCELLED, null, reason);
+        domainEvents.publishEvent(new EventDomainEvent.Cancelled(e.getId(), e.getPublicId(), reason));
         return e;
+    }
+
+    @Transactional
+    public Event complete(UUID id) {
+        Event e = loadOwned(id);
+        validator.assertCompletable(e);
+        e.setStatus(EventStatus.COMPLETED);
+        audit.record(e, EventAuditAction.EVENT_COMPLETED, null, null);
+        domainEvents.publishEvent(new EventDomainEvent.Completed(e.getId(), e.getPublicId()));
+        return e;
+    }
+
+    @Transactional(readOnly = true)
+    public PublicationReadinessResponse readiness(UUID id) {
+        return readiness.check(loadOwned(id));
+    }
+
+    @Transactional(readOnly = true)
+    public Page<EventAuditResponse> listAudit(UUID id, Pageable pageable) {
+        loadOwned(id); // ownership / existence
+        return audit.list(id, pageable);
     }
 
     // ---- helpers -----------------------------------------------------------
@@ -202,6 +250,42 @@ public class EventService {
         String organizer = currentUser.requireSubject();
         return events.findByIdAndOrganizerId(id, organizer)
                 .orElseThrow(() -> ApiException.notFound("Event not found: " + id));
+    }
+
+    /** Captures the audited scalar fields of an event for before/after diffing. */
+    private Map<String, Object> snapshot(Event e) {
+        Map<String, Object> s = new LinkedHashMap<>();
+        s.put("name", e.getName());
+        s.put("slug", e.getSlug());
+        s.put("visibility", e.getVisibility());
+        s.put("attendanceMode", e.getAttendanceMode());
+        s.put("commercialMode", e.getCommercialMode());
+        s.put("paymentProvider", e.getPaymentProvider());
+        s.put("currency", e.getCurrency());
+        s.put("timezone", e.getTimezone());
+        s.put("startsAt", e.getStartsAt());
+        s.put("endsAt", e.getEndsAt());
+        s.put("capacity", e.getCapacity());
+        return s;
+    }
+
+    /** Builds a {field:{from,to}} diff of the changed keys between two snapshots. */
+    private Map<String, Object> diff(Map<String, Object> before, Map<String, Object> after) {
+        Map<String, Object> changed = new LinkedHashMap<>();
+        before.forEach((key, oldValue) -> {
+            Object newValue = after.get(key);
+            if (!java.util.Objects.equals(oldValue, newValue)) {
+                Map<String, Object> fromTo = new LinkedHashMap<>();
+                fromTo.put("from", stringOrNull(oldValue));
+                fromTo.put("to", stringOrNull(newValue));
+                changed.put(key, fromTo);
+            }
+        });
+        return changed;
+    }
+
+    private static Object stringOrNull(Object v) {
+        return v == null ? null : v.toString();
     }
 
     private String normalizeCurrency(String currency) {
