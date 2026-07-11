@@ -4,6 +4,7 @@ import com.passlify.core.common.error.ApiException;
 import com.passlify.core.common.error.ErrorCode;
 import com.passlify.core.common.security.CurrentUser;
 import com.passlify.core.event.Event;
+import com.passlify.core.payment.PaymentProvider;
 import com.passlify.core.forms.CustomField;
 import com.passlify.core.forms.CustomFieldRepository;
 import com.passlify.core.forms.FieldScope;
@@ -38,6 +39,9 @@ public class CheckoutService {
     /** How long a checkout holds inventory before the expirer releases it. */
     static final Duration RESERVATION_TTL = Duration.ofMinutes(15);
 
+    /** MANUAL (bank-transfer) orders hold inventory far longer — the transfer takes days. */
+    private final Duration manualHold;
+
     private final OrderRepository orders;
     private final TicketTypeRepository ticketTypes;
     private final CustomFieldRepository customFields;
@@ -54,7 +58,10 @@ public class CheckoutService {
                            CurrentUser currentUser,
                            TicketIssuanceService ticketIssuanceService,
                            CheckoutValidator validator,
-                           ObjectMapper objectMapper) {
+                           ObjectMapper objectMapper,
+                           @org.springframework.beans.factory.annotation.Value(
+                                   "${passlify.manual-payment-hold-hours:72}") long manualHoldHours) {
+        this.manualHold = Duration.ofHours(manualHoldHours);
         this.orders = orders;
         this.ticketTypes = ticketTypes;
         this.customFields = customFields;
@@ -147,7 +154,9 @@ public class CheckoutService {
         if (free) {
             order.setPaidAt(Instant.now());
         } else {
-            order.setExpiresAt(Instant.now().plus(RESERVATION_TTL));
+            // Bank-transfer (MANUAL) orders need a much longer inventory hold than a card checkout.
+            Duration hold = event.getPaymentProvider() == PaymentProvider.MANUAL ? manualHold : RESERVATION_TTL;
+            order.setExpiresAt(Instant.now().plus(hold));
         }
         Order saved = orders.save(order);
 

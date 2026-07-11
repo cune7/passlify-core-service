@@ -70,7 +70,7 @@ class DashboardIntegrationTest extends AbstractIntegrationTest {
         // Paid event → organizer must be a billable company before publishing.
         organizationService.upsertMine(new UpsertOrganizationRequest(
                 OrganizationKind.COMPANY, "Org One d.o.o.", "Org One d.o.o.",
-                "123456789", "21234567", "Savska 5", "Belgrade", "11000", "RS", null));
+                "123456789", "21234567", "Savska 5", "Belgrade", "11000", "RS", null, null, null));
         eventService.publish(event.getId());
 
         Order order = checkoutService.createOrder(orderFor(tt));

@@ -24,5 +24,7 @@ public record UpsertOrganizationRequest(
         @Size(max = 120) String city,
         @Size(max = 20) String postalCode,
         @Size(min = 2, max = 2) String country,
-        @Email @Size(max = 320) String contactEmail) {
+        @Email @Size(max = 320) String contactEmail,
+        @Size(max = 64) String bankAccountNumber,
+        @Size(max = 255) String bankAccountHolder) {
 }

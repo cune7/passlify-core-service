@@ -19,6 +19,8 @@ public record OrganizationResponse(
         String postalCode,
         String country,
         String contactEmail,
+        String bankAccountNumber,
+        String bankAccountHolder,
         boolean billableCompany,
         Instant createdAt,
         Instant updatedAt) {
@@ -37,6 +39,8 @@ public record OrganizationResponse(
                 o.getPostalCode(),
                 o.getCountry(),
                 o.getContactEmail(),
+                o.getBankAccountNumber(),
+                o.getBankAccountHolder(),
                 o.isBillableCompany(),
                 o.getCreatedAt(),
                 o.getUpdatedAt());

@@ -13,6 +13,7 @@ public enum EventCapability {
     CONFIGURE_TICKETS,
     VIEW_REPORTS,
     SCAN,
+    MANAGE_PAYMENTS,
     MANAGE_COLLABORATORS,
     TRANSFER_OWNERSHIP
 }

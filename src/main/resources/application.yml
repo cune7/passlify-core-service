@@ -35,6 +35,8 @@ server:
 passlify:
   # Default currency for new events when the organizer doesn't pick one (Serbia-first).
   default-currency: ${PASSLIFY_DEFAULT_CURRENCY:RSD}
+  # How long a MANUAL (bank-transfer) order holds inventory awaiting confirmation.
+  manual-payment-hold-hours: ${MANUAL_PAYMENT_HOLD_HOURS:72}
   # HMAC key for signing ticket QR tokens (used from the issuance slice onward).
   qr-secret: ${PASSLIFY_QR_SECRET:dev-only-change-me-min-32-bytes-secret!!}
   # HMAC key for signing collaborator invitation tokens.

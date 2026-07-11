@@ -145,7 +145,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"kind\": \"COMPANY\",\n  \"displayName\": \"Startit Events d.o.o.\",\n  \"legalName\": \"Startit Events d.o.o. Beograd\",\n  \"vatPib\": \"123456789\",\n  \"registrationNo\": \"21234567\",\n  \"addressLine\": \"Savska 5\",\n  \"city\": \"Belgrade\",\n  \"postalCode\": \"11000\",\n  \"country\": \"RS\",\n  \"contactEmail\": \"billing@startit.rs\"\n}"
+              "raw": "{\n  \"kind\": \"COMPANY\",\n  \"displayName\": \"Startit Events d.o.o.\",\n  \"legalName\": \"Startit Events d.o.o. Beograd\",\n  \"vatPib\": \"123456789\",\n  \"registrationNo\": \"21234567\",\n  \"addressLine\": \"Savska 5\",\n  \"city\": \"Belgrade\",\n  \"postalCode\": \"11000\",\n  \"country\": \"RS\",\n  \"contactEmail\": \"billing@startit.rs\",\n  \"bankAccountNumber\": \"265-1234567890123-45\",\n  \"bankAccountHolder\": \"Startit Events d.o.o.\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/me/organization",
@@ -794,6 +794,45 @@
               "path": ["api", "v1", "webhooks", "{{provider}}"]
             },
             "description": "For the MOCK provider, POST {type: PAID|FAILED, sessionId} to simulate the bank. Real providers verify X-Signature over the raw body."
+          }
+        },
+        {
+          "name": "Manual: payment instructions (guest)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/public/payments/manual/instructions/{{orderId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "public", "payments", "manual", "instructions", "{{orderId}}"]
+            },
+            "description": "Bank-transfer details for a MANUAL-provider order (account, amount, reference=orderId)."
+          }
+        },
+        {
+          "name": "Manual: confirm payment (organizer/manager)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/orders/{{orderId}}/payment/confirm",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "orders", "{{orderId}}", "payment", "confirm"]
+            },
+            "description": "Organizer/manager (MANAGE_PAYMENTS) confirms the transfer arrived → order PAID + tickets issued."
+          }
+        },
+        {
+          "name": "Manual: reject payment (organizer/manager)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/orders/{{orderId}}/payment/reject",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "orders", "{{orderId}}", "payment", "reject"]
+            },
+            "description": "Rejects an unpaid MANUAL order → CANCELLED + inventory released."
           }
         }
       ]

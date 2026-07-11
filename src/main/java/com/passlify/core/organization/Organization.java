@@ -57,6 +57,13 @@ public class Organization extends BaseEntity {
     @Column(name = "contact_email", length = 320)
     private String contactEmail;
 
+    /** Bank account for MANUAL (offline / bank-transfer) payouts — shown on payment instructions. */
+    @Column(name = "bank_account_number", length = 64)
+    private String bankAccountNumber;
+
+    @Column(name = "bank_account_holder", length = 255)
+    private String bankAccountHolder;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;

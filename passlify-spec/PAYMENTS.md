@@ -22,7 +22,7 @@ Adding a processor = implement `PaymentGateway`; the checkout/webhook flow is un
 |----------|---------|--------------------------|----------------|
 | `NONE` | Free event — no payment processing | no | n/a |
 | `MOCK` | Fully simulated (MVP + tests) | no | ✅ `MockPaymentGateway` |
-| `MANUAL` | Offline / bank-transfer / admin-confirmed | no | ⏳ not built |
+| `MANUAL` | Offline / bank-transfer / admin-confirmed | no | ✅ `ManualPaymentGateway` |
 | `RAIFFEISEN` | Raiffeisen Serbia via the UPC e-Commerce Connect Gateway | **yes** | 🟡 built, config-gated, needs live verification |
 | `STRIPE` | Stripe Checkout | **yes** | 🟡 built (`StripePaymentGateway`), config-gated, needs live verification |
 
@@ -128,6 +128,35 @@ register SUCCESS/FAILURE/NOTIFY URLs at the bank, grant the org a RAIFFEISEN cap
 then run a test transaction end-to-end.
 
 ---
+
+## MANUAL (bank transfer / offline)
+
+No external processor: the buyer pays offline and the organizer confirms it. Unlike the
+card gateways there is **no redirect and no webhook** — confirmation is an internal action.
+
+**Flow**
+```
+Organizer publishes a MANUAL paid event (COMPANY required; MANUAL is capability-exempt)
+Buyer checks out → order PENDING_PAYMENT, inventory held on a LONGER window
+   (passlify.manual-payment-hold-hours, default 72h — a transfer takes days)
+POST /orders/{id}/payment-session → checkoutUrl points to our instructions page:
+   GET /api/v1/public/payments/manual/instructions/{orderId}
+     → { accountHolder, accountNumber, amountMinor, currency, reference=orderId }
+Buyer transfers the amount, quoting the reference
+Organizer/manager reconciles the incoming transfer, then:
+   POST /api/v1/orders/{orderId}/payment/confirm → order PAID + tickets issued (idempotent)
+   POST /api/v1/orders/{orderId}/payment/reject  → order CANCELLED + inventory released
+(no action within the hold window → the reservation expirer releases it)
+```
+
+- **Bank details** live on the seller's `Organization` (`bankAccountNumber`,
+  `bankAccountHolder`, set via `PUT /api/v1/me/organization`); the transfer **reference is
+  the order id**.
+- **Authorization** for confirm/reject is the event `MANAGE_PAYMENTS` capability
+  (OWNER/MANAGER; ADMIN bypass) — enforced in `PaymentService`.
+- `ManualPaymentGateway` is always available (no credentials); its `verifyAndParse` throws
+  (manual is never webhook-driven). Refunds are handled as an admin action (refund-initiation
+  slice), not here.
 
 ## MOCK provider (dev/test)
 

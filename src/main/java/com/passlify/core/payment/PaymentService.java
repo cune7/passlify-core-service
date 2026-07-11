@@ -39,6 +39,8 @@ public class PaymentService {
     private final PaymentGatewayRegistry gateways;
     private final TicketIssuanceService ticketIssuanceService;
     private final PaymentValidator validator;
+    private final com.passlify.core.event.EventAuthorization eventAuthorization;
+    private final com.passlify.core.organization.OrganizationRepository organizations;
 
     public PaymentService(OrderRepository orders,
                           PaymentRepository payments,
@@ -46,7 +48,9 @@ public class PaymentService {
                           TicketTypeRepository ticketTypes,
                           PaymentGatewayRegistry gateways,
                           TicketIssuanceService ticketIssuanceService,
-                          PaymentValidator validator) {
+                          PaymentValidator validator,
+                          com.passlify.core.event.EventAuthorization eventAuthorization,
+                          com.passlify.core.organization.OrganizationRepository organizations) {
         this.orders = orders;
         this.payments = payments;
         this.webhookEvents = webhookEvents;
@@ -54,6 +58,62 @@ public class PaymentService {
         this.gateways = gateways;
         this.ticketIssuanceService = ticketIssuanceService;
         this.validator = validator;
+        this.eventAuthorization = eventAuthorization;
+        this.organizations = organizations;
+    }
+
+    /** Public bank-transfer instructions for a MANUAL order (the order id is the capability). */
+    @Transactional(readOnly = true)
+    public com.passlify.core.payment.dto.ManualPaymentInstructions manualInstructions(UUID orderId) {
+        Order order = orders.findById(orderId)
+                .orElseThrow(() -> ApiException.notFound("Order not found: " + orderId));
+        if (!PaymentProvider.MANUAL.name().equals(order.getProvider())) {
+            throw ApiException.notFound("No manual payment for order " + orderId);
+        }
+        com.passlify.core.event.Event event = eventOf(order);
+        com.passlify.core.organization.Organization org =
+                event.getOrganizationId() == null ? null
+                        : organizations.findById(event.getOrganizationId()).orElse(null);
+        return new com.passlify.core.payment.dto.ManualPaymentInstructions(
+                org == null ? null : org.getBankAccountHolder(),
+                org == null ? null : org.getBankAccountNumber(),
+                order.getTotalMinor(), order.getCurrency(), order.getId().toString());
+    }
+
+    /**
+     * Organizer/manager (or admin) confirms an offline MANUAL payment has been received:
+     * marks the order PAID and issues tickets. Idempotent (already-PAID → no-op).
+     */
+    @Transactional
+    public void confirmManualPayment(UUID orderId) {
+        Order order = requireManualOrder(orderId, com.passlify.core.event.EventCapability.MANAGE_PAYMENTS);
+        if (order.getStatus() == OrderStatus.PAID) {
+            return;
+        }
+        if (order.getStatus() != OrderStatus.PENDING_PAYMENT) {
+            throw ApiException.invalidState("Order is not awaiting payment (" + order.getStatus() + ")");
+        }
+        Payment payment = ensureManualPayment(order);
+        payment.setStatus(PaymentStatus.SUCCEEDED);
+        order.setStatus(OrderStatus.PAID);
+        order.setPaidAt(Instant.now());
+        ticketIssuanceService.issueForOrder(order); // idempotent
+    }
+
+    /** Organizer/manager (or admin) rejects an unpaid MANUAL order: cancel + release inventory. */
+    @Transactional
+    public void rejectManualPayment(UUID orderId) {
+        Order order = requireManualOrder(orderId, com.passlify.core.event.EventCapability.MANAGE_PAYMENTS);
+        if (order.getStatus() == OrderStatus.CANCELLED || order.getStatus() == OrderStatus.EXPIRED) {
+            return;
+        }
+        if (order.getStatus() != OrderStatus.PENDING_PAYMENT) {
+            throw ApiException.invalidState("Order is not awaiting payment (" + order.getStatus() + ")");
+        }
+        payments.findByOrderId(orderId).stream().findFirst()
+                .ifPresent(p -> p.setStatus(PaymentStatus.FAILED));
+        order.setStatus(OrderStatus.CANCELLED);
+        releaseInventory(order);
     }
 
     @Transactional
@@ -212,6 +272,38 @@ public class PaymentService {
             return payments.findByProviderIntentId(event.intentId()).orElse(null);
         }
         return null;
+    }
+
+    /** Loads a MANUAL order and enforces the given event capability on the caller. */
+    private Order requireManualOrder(UUID orderId, com.passlify.core.event.EventCapability capability) {
+        Order order = orders.findById(orderId)
+                .orElseThrow(() -> ApiException.notFound("Order not found: " + orderId));
+        if (!PaymentProvider.MANUAL.name().equals(order.getProvider())) {
+            throw ApiException.invalidState("Not a manual-payment order");
+        }
+        eventAuthorization.require(eventOf(order), capability);
+        return order;
+    }
+
+    /** The order's event, resolved via its first line (all lines share one event). */
+    private com.passlify.core.event.Event eventOf(Order order) {
+        return order.getItems().stream().findFirst()
+                .map(item -> item.getTicketType().getEvent())
+                .orElseThrow(() -> ApiException.invalidState("Order has no items"));
+    }
+
+    /** Finds the order's payment, creating a PENDING MANUAL one if none exists yet. */
+    private Payment ensureManualPayment(Order order) {
+        return payments.findByOrderId(order.getId()).stream().findFirst().orElseGet(() -> {
+            Payment p = new Payment();
+            p.setOrder(order);
+            p.setProvider(PaymentProvider.MANUAL);
+            p.setStatus(PaymentStatus.PENDING);
+            p.setAmountMinor(order.getTotalMinor());
+            p.setCurrency(order.getCurrency());
+            p.setProviderSessionId(order.getId().toString());
+            return payments.save(p);
+        });
     }
 
 }

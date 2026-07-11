@@ -76,7 +76,7 @@ class EventServiceIntegrationTest extends AbstractIntegrationTest {
     private void makeCompany() {
         organizationService.upsertMine(new UpsertOrganizationRequest(
                 OrganizationKind.COMPANY, "Org One d.o.o.", "Org One d.o.o.",
-                "123456789", "21234567", "Savska 5", "Belgrade", "11000", "RS", null));
+                "123456789", "21234567", "Savska 5", "Belgrade", "11000", "RS", null, null, null));
     }
 
     @Test

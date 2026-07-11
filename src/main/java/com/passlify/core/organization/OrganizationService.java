@@ -77,6 +77,8 @@ public class OrganizationService {
         o.setPostalCode(req.postalCode());
         o.setCountry(country);
         o.setContactEmail(req.contactEmail());
+        o.setBankAccountNumber(req.bankAccountNumber());
+        o.setBankAccountHolder(req.bankAccountHolder());
         return organizations.save(o);
     }
 

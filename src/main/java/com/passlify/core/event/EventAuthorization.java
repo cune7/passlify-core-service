@@ -35,7 +35,8 @@ public class EventAuthorization {
         m.put(EventRole.MANAGER, EnumSet.of(
                 EventCapability.VIEW, EventCapability.EDIT_DETAILS, EventCapability.EDIT_COMMERCIAL,
                 EventCapability.MANAGE_LIFECYCLE, EventCapability.CONFIGURE_TICKETS,
-                EventCapability.VIEW_REPORTS, EventCapability.SCAN, EventCapability.MANAGE_COLLABORATORS));
+                EventCapability.VIEW_REPORTS, EventCapability.SCAN, EventCapability.MANAGE_PAYMENTS,
+                EventCapability.MANAGE_COLLABORATORS));
         m.put(EventRole.EDITOR, EnumSet.of(
                 EventCapability.VIEW, EventCapability.EDIT_DETAILS,
                 EventCapability.CONFIGURE_TICKETS, EventCapability.VIEW_REPORTS));
