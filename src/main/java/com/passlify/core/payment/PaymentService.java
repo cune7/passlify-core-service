@@ -240,8 +240,17 @@ public class PaymentService {
         if (event.chargeId() != null) {
             payment.setProviderChargeId(event.chargeId());
         }
-
         long refundAmount = event.refundedMinor() != null ? event.refundedMinor() : payment.getAmountMinor();
+        applyRefund(payment, order, refundAmount);
+    }
+
+    /**
+     * Applies a refund of {@code refundAmount} to a payment/order (shared by the
+     * charge-refunded webhook and admin-initiated refunds): accumulates the refunded
+     * total (capped at the paid amount), sets PARTIALLY_REFUNDED/REFUNDED, and on a full
+     * refund voids the tickets + releases inventory.
+     */
+    private void applyRefund(Payment payment, Order order, long refundAmount) {
         long totalRefunded = Math.min(payment.getAmountMinor(), payment.getRefundedMinor() + refundAmount);
         payment.setRefundedMinor(totalRefunded);
 
@@ -253,6 +262,38 @@ public class PaymentService {
             ticketIssuanceService.voidForOrder(order.getId());
             releaseInventory(order);
         }
+    }
+
+    /**
+     * Organizer/manager (or admin) initiates a refund on a paid order (full when
+     * {@code amountMinor} is null, else partial). Asks the provider gateway to move the
+     * money (Stripe refund API; MANUAL/MOCK are no-ops — money handled offline), then
+     * applies the internal refund state. Idempotent for full refunds against a later
+     * charge-refunded webhook (an already-REFUNDED order is skipped).
+     */
+    @Transactional
+    public void refund(UUID orderId, Long amountMinor) {
+        Order order = requireOrder(orderId, com.passlify.core.event.EventCapability.MANAGE_PAYMENTS);
+        if (order.getStatus() != OrderStatus.PAID && order.getStatus() != OrderStatus.PARTIALLY_REFUNDED) {
+            throw ApiException.invalidState("Only a paid order can be refunded (" + order.getStatus() + ")");
+        }
+        Payment payment = payments.findByOrderId(orderId).stream()
+                .filter(p -> p.getStatus() == PaymentStatus.SUCCEEDED
+                        || p.getStatus() == PaymentStatus.PARTIALLY_REFUNDED)
+                .findFirst()
+                .orElseThrow(() -> ApiException.invalidState("No settled payment to refund"));
+
+        long remaining = payment.getAmountMinor() - payment.getRefundedMinor();
+        if (remaining <= 0) {
+            throw ApiException.invalidState("Order is already fully refunded");
+        }
+        long delta = amountMinor == null ? remaining : Math.min(amountMinor, remaining);
+        if (delta <= 0) {
+            throw ApiException.validation("Refund amount must be positive");
+        }
+
+        gateways.require(validator.requireProvider(order.getProvider())).refund(payment, delta);
+        applyRefund(payment, order, delta);
     }
 
     private void releaseInventory(Order order) {
@@ -275,13 +316,19 @@ public class PaymentService {
     }
 
     /** Loads a MANUAL order and enforces the given event capability on the caller. */
-    private Order requireManualOrder(UUID orderId, com.passlify.core.event.EventCapability capability) {
+    /** Loads an order and enforces an event capability on the caller (any provider). */
+    private Order requireOrder(UUID orderId, com.passlify.core.event.EventCapability capability) {
         Order order = orders.findById(orderId)
                 .orElseThrow(() -> ApiException.notFound("Order not found: " + orderId));
+        eventAuthorization.require(eventOf(order), capability);
+        return order;
+    }
+
+    private Order requireManualOrder(UUID orderId, com.passlify.core.event.EventCapability capability) {
+        Order order = requireOrder(orderId, capability);
         if (!PaymentProvider.MANUAL.name().equals(order.getProvider())) {
             throw ApiException.invalidState("Not a manual-payment order");
         }
-        eventAuthorization.require(eventOf(order), capability);
         return order;
     }
 

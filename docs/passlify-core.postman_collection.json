@@ -834,6 +834,23 @@
             },
             "description": "Rejects an unpaid MANUAL order → CANCELLED + inventory released."
           }
+        },
+        {
+          "name": "Refund order (organizer/manager/admin)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Customer request\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/orders/{{orderId}}/refund",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "orders", "{{orderId}}", "refund"]
+            },
+            "description": "Initiate a refund (MANAGE_PAYMENTS). Omit amountMinor for a full refund; add \"amountMinor\": <minor units> for partial. Full refund voids tickets + releases inventory."
+          }
         }
       ]
     },

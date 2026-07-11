@@ -46,6 +46,27 @@ Endpoints:
 
 Statuses: `PENDING · ACTIVE · SUSPENDED · REVOKED · EXPIRED`. Migration V12.
 
+## Refunds
+
+Two paths, both funnelling through one internal `applyRefund` (accumulates the refunded
+total capped at the paid amount; on a **full** refund voids the order's tickets + releases
+inventory):
+
+- **Reactive** — a provider `charge.refunded` webhook (e.g. Stripe) → normalized to a
+  REFUNDED `PaymentEvent`.
+- **Initiated** — `POST /api/v1/orders/{orderId}/refund` (owner/manager `MANAGE_PAYMENTS`,
+  or admin), body optional `{ "amountMinor": <partial>, "reason": "…" }` — omit
+  `amountMinor` for a full refund. Asks the provider gateway to move the money
+  (`PaymentGateway.refund`, default no-op), then applies the internal refund state.
+
+Per provider: **STRIPE** → `Refund.create` on the payment intent; **MANUAL/MOCK** →
+no-op (money returned offline); **RAIFFEISEN** → no-op for now (do the reversal in the
+bank portal / UPC `/go/repayment`, tracked with the live-verification task).
+
+Idempotency: a full initiated refund marks the order REFUNDED, so a later
+`charge.refunded` webhook is skipped. (Partial-refund reconciliation against a provider's
+*cumulative* refund webhook is a known follow-up nuance.)
+
 ---
 
 ## Raiffeisen — UPC "e-Commerce Connect Gateway"

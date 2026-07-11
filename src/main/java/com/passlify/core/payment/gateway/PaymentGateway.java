@@ -22,4 +22,14 @@ public interface PaymentGateway {
      * verification fails.
      */
     PaymentEvent verifyAndParse(String rawBody, String signature);
+
+    /**
+     * Moves money back to the buyer for an organizer-initiated refund of
+     * {@code amountMinor}. Default is a no-op — MANUAL/MOCK settle offline and the
+     * internal refund state is applied by the caller. Real processors (Stripe) override
+     * this to call their refund API.
+     */
+    default void refund(com.passlify.core.payment.Payment payment, long amountMinor) {
+        // no external processor
+    }
 }

@@ -102,6 +102,20 @@ public class StripePaymentGateway implements PaymentGateway {
         };
     }
 
+    @Override
+    public void refund(com.passlify.core.payment.Payment payment, long amountMinor) {
+        try {
+            com.stripe.model.Refund.create(
+                    com.stripe.param.RefundCreateParams.builder()
+                            .setPaymentIntent(payment.getProviderIntentId())
+                            .setAmount(amountMinor)
+                            .build(),
+                    RequestOptions.builder().setApiKey(secretKey).build());
+        } catch (StripeException e) {
+            throw ApiException.of(ErrorCode.INVALID_STATE, "Stripe refund failed: " + e.getMessage());
+        }
+    }
+
     /** The event's {@code data.object} as JSON — version-independent field access. */
     private JsonNode dataObject(Event event) {
         String rawJson = event.getDataObjectDeserializer().getRawJson();

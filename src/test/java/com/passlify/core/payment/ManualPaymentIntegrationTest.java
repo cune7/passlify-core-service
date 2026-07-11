@@ -83,6 +83,31 @@ class ManualPaymentIntegrationTest extends AbstractIntegrationTest {
                 .isInstanceOf(ApiException.class);
     }
 
+    @Test
+    void fullRefundVoidsAndMarksRefunded() {
+        UUID orderId = setUpManualOrder();
+        paymentService.confirmManualPayment(orderId); // → PAID
+        paymentService.refund(orderId, null);          // full
+        assertThat(orders.findById(orderId).orElseThrow().getStatus()).isEqualTo(OrderStatus.REFUNDED);
+    }
+
+    @Test
+    void partialRefundMarksPartiallyRefunded() {
+        UUID orderId = setUpManualOrder();
+        paymentService.confirmManualPayment(orderId); // → PAID (total 500_000)
+        paymentService.refund(orderId, 200_000L);
+        assertThat(orders.findById(orderId).orElseThrow().getStatus()).isEqualTo(OrderStatus.PARTIALLY_REFUNDED);
+        // A follow-up full refund of the remainder completes it.
+        paymentService.refund(orderId, null);
+        assertThat(orders.findById(orderId).orElseThrow().getStatus()).isEqualTo(OrderStatus.REFUNDED);
+    }
+
+    @Test
+    void cannotRefundAnUnpaidOrder() {
+        UUID orderId = setUpManualOrder(); // still PENDING_PAYMENT
+        assertThatThrownBy(() -> paymentService.refund(orderId, null)).isInstanceOf(ApiException.class);
+    }
+
     /** Creates a published MANUAL paid event (COMPANY w/ bank details) + a PENDING order. */
     private UUID setUpManualOrder() {
         authenticate("organizer-1", "ORGANIZER");
