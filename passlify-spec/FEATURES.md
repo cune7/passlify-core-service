@@ -63,6 +63,7 @@ custom attendee-form fields, an organizer dashboard, and an organization/company
 - ✅ `POST /api/v1/webhooks/{provider}` — webhook handling with an **idempotency ledger** (`WebhookEvent` / `WebhookEventKey`).
 - ✅ `PaymentStatus`: PENDING · SUCCEEDED · FAILED · REFUNDED · PARTIALLY_REFUNDED.
 - ✅ Refund handling (react to refund event → mark refunded, VOID tickets, release inventory).
+- ✅ **Payment capabilities (§10, Phase 3):** `OrganizerPaymentCapability` — admins grant/suspend/revoke which providers an org may use, with allowed currencies (`POST/GET /api/v1/admin/organizations/{id}/payment-capabilities`, `PATCH /api/v1/admin/payment-capabilities/{id}`, `GET /api/v1/me/payment-capabilities`). Real processors (STRIPE/RAIFFEISEN) require a usable capability covering the event currency to publish; NONE/MOCK/MANUAL are exempt. Migration V12.
 
 ## Ticket issuance & delivery  `com.passlify.core.issuance`
 - ✅ One `Ticket` issued per quantity unit on payment success (idempotent). `TicketStatus`: VALID · USED · VOID.

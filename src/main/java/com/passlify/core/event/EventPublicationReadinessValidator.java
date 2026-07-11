@@ -3,6 +3,7 @@ package com.passlify.core.event;
 import com.passlify.core.event.dto.PublicationReadinessResponse;
 import com.passlify.core.event.dto.PublicationReadinessResponse.Violation;
 import com.passlify.core.organization.OrganizationValidator;
+import com.passlify.core.payment.PaymentCapabilityService;
 import com.passlify.core.payment.PaymentProvider;
 import com.passlify.core.ticket.TicketTypeRepository;
 import java.util.ArrayList;
@@ -21,13 +22,16 @@ public class EventPublicationReadinessValidator {
     private final TicketTypeRepository ticketTypes;
     private final EventOnlineAccessRepository onlineAccess;
     private final OrganizationValidator organizationValidator;
+    private final PaymentCapabilityService paymentCapabilities;
 
     public EventPublicationReadinessValidator(TicketTypeRepository ticketTypes,
                                               EventOnlineAccessRepository onlineAccess,
-                                              OrganizationValidator organizationValidator) {
+                                              OrganizationValidator organizationValidator,
+                                              PaymentCapabilityService paymentCapabilities) {
         this.ticketTypes = ticketTypes;
         this.onlineAccess = onlineAccess;
         this.organizationValidator = organizationValidator;
+        this.paymentCapabilities = paymentCapabilities;
     }
 
     public PublicationReadinessResponse check(Event e) {
@@ -80,6 +84,8 @@ public class EventPublicationReadinessValidator {
             if (e.getPaymentProvider() == PaymentProvider.NONE) {
                 v.add(new Violation("PAYMENT_PROVIDER_REQUIRED", "paymentProvider",
                         "A paid event requires a payment provider."));
+            } else if (e.getPaymentProvider().requiresCapability()) {
+                checkProviderCapability(e, v);
             }
             if (activeTicketTypes > 0 && !hasPricedTicket) {
                 v.add(new Violation("SELLABLE_TICKET_REQUIRED", "ticketTypes",
@@ -88,6 +94,17 @@ public class EventPublicationReadinessValidator {
         } else if (hasPricedTicket) {
             v.add(new Violation("FREE_EVENT_HAS_PAID_TICKETS", "ticketTypes",
                     "A free event cannot have priced ticket types."));
+        }
+    }
+
+    private void checkProviderCapability(Event e, List<Violation> v) {
+        var capability = paymentCapabilities.find(e.getOrganizationId(), e.getPaymentProvider());
+        if (capability.isEmpty() || !capability.get().isActiveNow()) {
+            v.add(new Violation("PAYMENT_PROVIDER_NOT_APPROVED", "paymentProvider",
+                    "The organization has no active capability for " + e.getPaymentProvider() + "."));
+        } else if (!capability.get().coversCurrency(e.getCurrency())) {
+            v.add(new Violation("CURRENCY_NOT_SUPPORTED", "currency",
+                    e.getPaymentProvider() + " is not approved for " + e.getCurrency() + "."));
         }
     }
 

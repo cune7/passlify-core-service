@@ -3,6 +3,7 @@ package com.passlify.core.event;
 import com.passlify.core.common.error.ApiException;
 import com.passlify.core.common.error.ErrorCode;
 import com.passlify.core.organization.OrganizationValidator;
+import com.passlify.core.payment.PaymentCapabilityService;
 import com.passlify.core.ticket.TicketTypeRepository;
 import java.time.Instant;
 import org.springframework.stereotype.Component;
@@ -17,10 +18,14 @@ public class EventValidator {
 
     private final TicketTypeRepository ticketTypes;
     private final OrganizationValidator organizationValidator;
+    private final PaymentCapabilityService paymentCapabilities;
 
-    public EventValidator(TicketTypeRepository ticketTypes, OrganizationValidator organizationValidator) {
+    public EventValidator(TicketTypeRepository ticketTypes,
+                          OrganizationValidator organizationValidator,
+                          PaymentCapabilityService paymentCapabilities) {
         this.ticketTypes = ticketTypes;
         this.organizationValidator = organizationValidator;
+        this.paymentCapabilities = paymentCapabilities;
     }
 
     public void validateDates(Instant startsAt, Instant endsAt) {
@@ -53,6 +58,13 @@ public class EventValidator {
             organizationValidator.assertCanSellPaidEvents(e.getOrganizerId());
             if (e.getPaymentProvider() == com.passlify.core.payment.PaymentProvider.NONE) {
                 throw ApiException.invalidState("A paid event requires a payment provider");
+            }
+            // Real processors need an admin-approved, currency-covering capability.
+            if (e.getPaymentProvider().requiresCapability()
+                    && !paymentCapabilities.isUsable(e.getOrganizationId(), e.getPaymentProvider(), e.getCurrency())) {
+                throw ApiException.invalidState(
+                        "Payment provider " + e.getPaymentProvider() + " is not approved for this organization"
+                                + " in " + e.getCurrency());
             }
         }
     }

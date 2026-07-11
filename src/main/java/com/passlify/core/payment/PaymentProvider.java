@@ -20,5 +20,14 @@ public enum PaymentProvider {
     MOCK,
     MANUAL,
     RAIFFEISEN,
-    STRIPE
+    STRIPE;
+
+    /**
+     * Real external money processors require an admin-approved capability before a paid
+     * event may publish on them. {@code NONE}/{@code MOCK} are platform built-ins and
+     * {@code MANUAL} is offline/admin-confirmed, so none of those need approval.
+     */
+    public boolean requiresCapability() {
+        return this == STRIPE || this == RAIFFEISEN;
+    }
 }

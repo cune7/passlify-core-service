@@ -175,6 +175,79 @@
       ]
     },
     {
+      "name": "Payment Capabilities",
+      "item": [
+        {
+          "name": "My payment capabilities",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/me/payment-capabilities",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "me", "payment-capabilities"]
+            },
+            "description": "Providers approved for the caller's organization."
+          }
+        },
+        {
+          "name": "Grant capability (ADMIN)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.collectionVariables.set('capabilityId', pm.response.json().id);"]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"provider\": \"STRIPE\",\n  \"allowedCurrencies\": [\"RSD\", \"EUR\"],\n  \"merchantConfigurationReference\": \"acct_123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/organizations/{{organizationId}}/payment-capabilities",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "organizations", "{{organizationId}}", "payment-capabilities"]
+            },
+            "description": "ADMIN only. Grants an ACTIVE capability. Set organizationId (from admin org list)."
+          }
+        },
+        {
+          "name": "List org capabilities (ADMIN)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/organizations/{{organizationId}}/payment-capabilities",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "organizations", "{{organizationId}}", "payment-capabilities"]
+            }
+          }
+        },
+        {
+          "name": "Suspend / revoke capability (ADMIN)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"SUSPENDED\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/payment-capabilities/{{capabilityId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "payment-capabilities", "{{capabilityId}}"]
+            },
+            "description": "status: PENDING|ACTIVE|SUSPENDED|REVOKED|EXPIRED."
+          }
+        }
+      ]
+    },
+    {
       "name": "Events (any authenticated user)",
       "item": [
         {
