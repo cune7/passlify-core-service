@@ -5,6 +5,7 @@ import com.passlify.core.common.error.ErrorCode;
 import com.passlify.core.common.security.CurrentUser;
 import com.passlify.core.event.dto.CollaboratorResponse;
 import com.passlify.core.event.dto.InviteCollaboratorRequest;
+import com.passlify.core.event.dto.TransferOwnershipRequest;
 import com.passlify.core.event.dto.UpdateCollaboratorRoleRequest;
 import com.passlify.core.notification.EmailService;
 import java.time.Instant;
@@ -148,7 +149,47 @@ public class EventCollaboratorService {
         return CollaboratorResponse.from(c);
     }
 
+    /**
+     * Transfers ownership to an accepted collaborator (§13.4). Only the current owner
+     * or an ADMIN may do this; the outgoing owner becomes a MANAGER and the event's
+     * {@code organizerId} moves to the new owner. Organization reassignment for paid
+     * events is deferred (the organizationId is left unchanged for now).
+     */
+    @Transactional
+    public CollaboratorResponse transferOwnership(UUID eventId, TransferOwnershipRequest req) {
+        Event event = loadEvent(eventId);
+        requireOwnerOrAdmin(event);
+
+        EventCollaborator target = loadCollaborator(eventId, req.targetCollaboratorId());
+        if (target.getInvitationStatus() != InvitationStatus.ACCEPTED || target.getUserId() == null) {
+            throw ApiException.invalidState("Ownership can only be transferred to an accepted collaborator");
+        }
+        if (target.getRole() == EventRole.OWNER) {
+            throw ApiException.of(ErrorCode.CONFLICT, "That collaborator is already the owner");
+        }
+
+        String previousOwnerId = event.getOrganizerId();
+        collaborators.findByEventIdAndUserId(eventId, previousOwnerId)
+                .ifPresent(current -> current.setRole(EventRole.MANAGER));
+        target.setRole(EventRole.OWNER);
+        event.setOrganizerId(target.getUserId());
+
+        audit.record(event, EventAuditAction.OWNERSHIP_TRANSFERRED, null,
+                previousOwnerId + " -> " + target.getUserId());
+        return CollaboratorResponse.from(target);
+    }
+
     // ---- helpers -----------------------------------------------------------
+
+    /** Only the current owner or an ADMIN (used for ownership transfer). */
+    private void requireOwnerOrAdmin(Event event) {
+        if (currentUser.isAdmin()) {
+            return;
+        }
+        if (!currentUser.requireSubject().equals(event.getOrganizerId())) {
+            throw ApiException.of(ErrorCode.FORBIDDEN, "Only the event owner may transfer ownership");
+        }
+    }
 
     private Event loadEvent(UUID eventId) {
         return events.findById(eventId)

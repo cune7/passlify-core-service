@@ -452,6 +452,23 @@
               "path": ["api", "v1", "events", "{{eventId}}", "collaborators", "{{collaboratorId}}"]
             }
           }
+        },
+        {
+          "name": "Transfer ownership",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"targetCollaboratorId\": \"{{collaboratorId}}\",\n  \"confirm\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/events/{{eventId}}/transfer-ownership",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "events", "{{eventId}}", "transfer-ownership"]
+            },
+            "description": "Owner/admin only. Target must be an accepted collaborator; the previous owner becomes MANAGER."
+          }
         }
       ]
     },

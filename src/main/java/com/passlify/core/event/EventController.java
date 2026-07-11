@@ -1,11 +1,13 @@
 package com.passlify.core.event;
 
 import com.passlify.core.event.dto.CancelEventRequest;
+import com.passlify.core.event.dto.CollaboratorResponse;
 import com.passlify.core.event.dto.CreateEventRequest;
 import com.passlify.core.event.dto.EventAuditResponse;
 import com.passlify.core.event.dto.EventResponse;
 import com.passlify.core.event.dto.EventSummary;
 import com.passlify.core.event.dto.PublicationReadinessResponse;
+import com.passlify.core.event.dto.TransferOwnershipRequest;
 import com.passlify.core.event.dto.UpdateEventRequest;
 import jakarta.validation.Valid;
 import java.util.UUID;
@@ -82,5 +84,11 @@ public class EventController {
     public Page<EventAuditResponse> audit(@PathVariable UUID id,
                                           @PageableDefault(size = 20) Pageable pageable) {
         return eventService.listAudit(id, pageable);
+    }
+
+    @PostMapping("/{id}/transfer-ownership")
+    public CollaboratorResponse transferOwnership(@PathVariable UUID id,
+                                                  @Valid @RequestBody TransferOwnershipRequest req) {
+        return eventService.transferOwnership(id, req);
     }
 }

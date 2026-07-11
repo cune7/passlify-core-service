@@ -7,6 +7,7 @@ import com.passlify.core.common.error.ApiException;
 import com.passlify.core.event.dto.CollaboratorResponse;
 import com.passlify.core.event.dto.CreateEventRequest;
 import com.passlify.core.event.dto.InviteCollaboratorRequest;
+import com.passlify.core.event.dto.TransferOwnershipRequest;
 import com.passlify.core.event.dto.UpdateCollaboratorRoleRequest;
 import com.passlify.core.support.AbstractIntegrationTest;
 import java.time.Instant;
@@ -105,6 +106,42 @@ class EventCollaboratorIntegrationTest extends AbstractIntegrationTest {
 
         collaborators.remove(eventId, invited.id());
         assertThat(collaborators.list(eventId)).hasSize(1); // owner only
+    }
+
+    @Test
+    void transferOwnershipSwapsRoles() {
+        authenticate("organizer-1", "owner@x.rs", "ORGANIZER");
+        UUID eventId = eventService.create(event()).getId();
+        CollaboratorResponse invited = collaborators.invite(eventId,
+                new InviteCollaboratorRequest("friend@x.rs", EventRole.EDITOR));
+        authenticate("user-2", "friend@x.rs", "ORGANIZER");
+        collaborators.accept(eventId, invited.id());
+
+        authenticate("organizer-1", "owner@x.rs", "ORGANIZER");
+        CollaboratorResponse newOwner = eventService.transferOwnership(eventId,
+                new TransferOwnershipRequest(invited.id(), true));
+        assertThat(newOwner.role()).isEqualTo(EventRole.OWNER);
+        assertThat(newOwner.userId()).isEqualTo("user-2");
+
+        // Ownership moved; the previous owner is now a MANAGER.
+        authenticate("user-2", "friend@x.rs", "ORGANIZER");
+        assertThat(eventService.getOwned(eventId).getOrganizerId()).isEqualTo("user-2");
+        assertThat(collaborators.list(eventId)).anySatisfy(c -> {
+            assertThat(c.userId()).isEqualTo("organizer-1");
+            assertThat(c.role()).isEqualTo(EventRole.MANAGER);
+        });
+    }
+
+    @Test
+    void nonOwnerCannotTransferOwnership() {
+        authenticate("organizer-1", "owner@x.rs", "ORGANIZER");
+        UUID eventId = eventService.create(event()).getId();
+        CollaboratorResponse invited = collaborators.invite(eventId,
+                new InviteCollaboratorRequest("friend@x.rs", EventRole.EDITOR));
+
+        authenticate("stranger", "stranger@x.rs", "ORGANIZER");
+        assertThatThrownBy(() -> eventService.transferOwnership(eventId,
+                new TransferOwnershipRequest(invited.id(), true))).isInstanceOf(ApiException.class);
     }
 
     private CreateEventRequest event() {

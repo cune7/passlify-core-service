@@ -7,8 +7,10 @@ import com.passlify.core.common.text.HtmlSanitizationService;
 import com.passlify.core.event.dto.CreateEventRequest;
 import com.passlify.core.event.dto.LocationDto;
 import com.passlify.core.event.dto.UpdateEventRequest;
+import com.passlify.core.event.dto.CollaboratorResponse;
 import com.passlify.core.event.dto.EventAuditResponse;
 import com.passlify.core.event.dto.PublicationReadinessResponse;
+import com.passlify.core.event.dto.TransferOwnershipRequest;
 import com.passlify.core.organization.Organization;
 import com.passlify.core.organization.OrganizationService;
 import com.passlify.core.payment.PaymentProvider;
@@ -235,6 +237,12 @@ public class EventService {
     @Transactional(readOnly = true)
     public PublicationReadinessResponse readiness(UUID id) {
         return readiness.check(loadOwned(id));
+    }
+
+    /** Transfer ownership to an accepted collaborator (delegates; enforces owner/admin). */
+    @Transactional
+    public CollaboratorResponse transferOwnership(UUID id, TransferOwnershipRequest req) {
+        return collaborators.transferOwnership(id, req);
     }
 
     @Transactional(readOnly = true)
