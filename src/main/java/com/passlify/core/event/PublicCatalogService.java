@@ -27,19 +27,23 @@ public class PublicCatalogService {
     @Transactional(readOnly = true)
     public Page<Event> search(String q, String city, java.util.UUID eventTypeId,
                               Instant from, Instant to, Pageable pageable) {
-        Specification<Event> spec = Specification.allOf(
-                PublicEventSpecifications.publishedAndPublic(),
-                PublicEventSpecifications.nameContains(q),
-                PublicEventSpecifications.inCity(city),
-                PublicEventSpecifications.ofEventType(eventTypeId),
-                PublicEventSpecifications.startsFrom(from),
-                PublicEventSpecifications.startsUntil(to));
-        return events.findAll(spec, pageable);
+        // Drop null fragments (optional filters that were not supplied); allOf rejects nulls.
+        List<Specification<Event>> fragments = java.util.stream.Stream.of(
+                        PublicEventSpecifications.publishedAndPublic(),
+                        PublicEventSpecifications.nameContains(q),
+                        PublicEventSpecifications.inCity(city),
+                        PublicEventSpecifications.ofEventType(eventTypeId),
+                        PublicEventSpecifications.startsFrom(from),
+                        PublicEventSpecifications.startsUntil(to))
+                .filter(java.util.Objects::nonNull)
+                .toList();
+        return events.findAll(Specification.allOf(fragments), pageable);
     }
 
     @Transactional(readOnly = true)
     public Event getPublishedBySlug(String slug) {
-        return events.findBySlugAndStatusAndVisibility(slug, EventStatus.PUBLISHED, Visibility.PUBLIC)
+        return events.findBySlugAndStatusAndVisibilityIn(slug, EventStatus.PUBLISHED,
+                        java.util.List.of(Visibility.PUBLIC, Visibility.UNLISTED))
                 .orElseThrow(() -> ApiException.notFound("Event not found: " + slug));
     }
 
