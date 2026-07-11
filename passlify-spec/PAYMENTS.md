@@ -24,7 +24,7 @@ Adding a processor = implement `PaymentGateway`; the checkout/webhook flow is un
 | `MOCK` | Fully simulated (MVP + tests) | no | ✅ `MockPaymentGateway` |
 | `MANUAL` | Offline / bank-transfer / admin-confirmed | no | ⏳ not built |
 | `RAIFFEISEN` | Raiffeisen Serbia via the UPC e-Commerce Connect Gateway | **yes** | 🟡 built, config-gated, needs live verification |
-| `STRIPE` | Stripe Checkout | **yes** | ⏳ still `MockPaymentGateway` (pending) |
+| `STRIPE` | Stripe Checkout | **yes** | 🟡 built (`StripePaymentGateway`), config-gated, needs live verification |
 
 `requiresCapability()` is true for `STRIPE` and `RAIFFEISEN` (real external money
 processors); `NONE`/`MOCK`/`MANUAL` are exempt.
@@ -135,10 +135,26 @@ then run a test transaction end-to-end.
 `/api/v1/webhooks/mock`, e.g. `{"type":"PAID","sessionId":"mock_sess_…"}`
 (`PAID`/`FAILED`/`REFUNDED`). No signature, no external account.
 
-## Stripe (pending)
+## Stripe
 
-Not yet implemented — checkout still resolves to `MockPaymentGateway` for `STRIPE`.
-Planned: `StripePaymentGateway` (Checkout Session + `Webhook.constructEvent` signature
-verification, mapping `checkout.session.completed` / `payment_intent.succeeded` /
-`.payment_failed` / `charge.refunded`), config-gated like Raiffeisen. Needs Stripe
-test-mode keys.
+`StripePaymentGateway` (stripe-java SDK) — `createSession` creates a Checkout Session
+(PAYMENT mode, one line item at `order.totalMinor`/`currency`, `metadata.orderId`,
+customer email); `verifyAndParse` calls `Webhook.constructEvent` against the webhook
+secret and maps `checkout.session.completed` / `payment_intent.succeeded` → PAID,
+`payment_intent.payment_failed` → FAILED, `charge.refunded` → REFUNDED (with
+`amount_refunded`). Event fields are read from the raw event JSON (API-version
+independent). `StripeWebhookController` exposes `POST /api/v1/webhooks/stripe` and reads
+the `Stripe-Signature` header (the generic sink uses `X-Signature`).
+
+| Property | Env | Notes |
+|----------|-----|-------|
+| `passlify.stripe.enabled` | `STRIPE_ENABLED` | `true` activates the gateway + webhook endpoint. Default `false`. |
+| `passlify.stripe.secret-key` | `STRIPE_SECRET_KEY` | Stripe secret key (use `sk_test_…` first) |
+| `passlify.stripe.webhook-secret` | `STRIPE_WEBHOOK_SECRET` | endpoint signing secret (`whsec_…`) |
+
+**Config-gated** (`enabled=false` default), so inert in dev/test. Tested: unit (webhook
+signature verify + event mapping on locally-signed payloads) + enabled-path MockMvc
+(signed → 200, bad signature → 400). **Needs live verification** against Stripe test-mode
+keys: run a real Checkout redirect + `stripe listen`/dashboard webhooks to confirm
+`createSession` params and the end-to-end PAID/refund flow. To go live: set the env vars,
+grant the org a STRIPE capability, register the webhook URL in the Stripe dashboard.

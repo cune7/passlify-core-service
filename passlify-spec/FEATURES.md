@@ -84,7 +84,7 @@ Test coverage: 68 tests (unit + Testcontainers-Postgres integration), all green.
 - ✅ Refund handling (react to refund event → mark refunded, VOID tickets, release inventory).
 - ✅ **Payment capabilities (§10, Phase 3):** `OrganizerPaymentCapability` — admins grant/suspend/revoke which providers an org may use, with allowed currencies (`POST/GET /api/v1/admin/organizations/{id}/payment-capabilities`, `PATCH /api/v1/admin/payment-capabilities/{id}`, `GET /api/v1/me/payment-capabilities`). Real processors (STRIPE/RAIFFEISEN) require a usable capability covering the event currency to publish; NONE/MOCK/MANUAL are exempt. Migration V12.
 - 🟡 **Raiffeisen gateway (UPC e-Commerce Connect Gateway):** `RaiffeisenPaymentGateway` + `UpcSignature` (RSA-SHA1 over the ordered request/response datafiles, per the merchant doc in `passlify-spec/docs/rfz-ecommerce-integration-docs`). Full flow implemented: `createSession` → our auto-submitting **redirect page** (`RaiffeisenRedirectController`) POSTs the signed fields to the bank; the bank's **NOTIFY_URL** hits `RaiffeisenNotifyController`, which verifies the signature, records/processes the event, and answers the required `Response.action=approve`/`reverse` handshake (else UPC auto-reverses). **Config-gated** (`passlify.raiffeisen.enabled`, inert until merchant creds). Tested: unit (sign/verify/form/notify-body) + enabled-path MockMvc integration. Webhook payload column relaxed to text (V13) so form-encoded bodies persist. Remaining: verify field order / exact NOTIFY body / form-encoding against the UPC test server with real creds; tokenization (saved cards) not implemented.
-- 🟡 **Stripe gateway** — still `MockPaymentGateway`; real Stripe SDK deferred (Raiffeisen chosen first).
+- 🟡 **Stripe gateway:** `StripePaymentGateway` (stripe-java) — Checkout Session create + `Webhook.constructEvent` signature verification mapping `checkout.session.completed`/`payment_intent.*`/`charge.refunded`; `POST /api/v1/webhooks/stripe` (reads `Stripe-Signature`). Config-gated (`passlify.stripe.enabled`); unit + enabled-path MockMvc tests. Needs Stripe test-mode keys for live end-to-end verification.
 
 ## Ticket issuance & delivery  `com.passlify.core.issuance`
 - ✅ One `Ticket` issued per quantity unit on payment success (idempotent). `TicketStatus`: VALID · USED · VOID.
@@ -114,7 +114,7 @@ Test coverage: 68 tests (unit + Testcontainers-Postgres integration), all green.
 
 ## Notable gaps / next candidates
 1. 🟡 **Raiffeisen go-live** — confirm NestPay field set / hash version / result codes against the merchant integration doc + provision test-env store key, then verify redirect + callback end-to-end (task open).
-2. 🟡 **Real Stripe integration** — replace `MockPaymentGateway` with a live Stripe Checkout + webhook implementation (needs Stripe test-mode keys; deferred behind Raiffeisen).
+2. 🟡 **Stripe live verification** — gateway built + config-gated; verify end-to-end with Stripe test-mode keys (Checkout redirect + real webhooks).
 3. ⏳ **Event Phase 4** — slug redirects, automated completion, schedule-change notifications, private-event invitations, archival.
 4. ⏳ Publish-time enforcement of contact/location (currently advisory in readiness; pending contact-editing DTOs). Exact §19.1 category catalog is a reference-data follow-up.
 5. ⏳ PIB check-digit validation (needs real known-good PIBs first — see `organization-domain-model`).

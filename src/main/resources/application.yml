@@ -51,6 +51,12 @@ passlify:
     locale: ${RAIFFEISEN_LOCALE:en}
     private-key: ${RAIFFEISEN_PRIVATE_KEY:}
     gateway-public-key: ${RAIFFEISEN_GATEWAY_PUBLIC_KEY:}
+  # Stripe Checkout. Inert until enabled=true; then the STRIPE gateway bean + webhook
+  # endpoint activate. Keys from the Stripe dashboard (use test-mode keys to verify).
+  stripe:
+    enabled: ${STRIPE_ENABLED:false}
+    secret-key: ${STRIPE_SECRET_KEY:}
+    webhook-secret: ${STRIPE_WEBHOOK_SECRET:}
   mail:
     from: ${PASSLIFY_MAIL_FROM:tickets@passlify.rs}
     enabled: ${PASSLIFY_MAIL_ENABLED:true}

@@ -121,6 +121,13 @@
             <version>1.18.3</version>
         </dependency>
 
+        <!-- Stripe payment gateway SDK (config-gated; inert until passlify.stripe.enabled) -->
+        <dependency>
+            <groupId>com.stripe</groupId>
+            <artifactId>stripe-java</artifactId>
+            <version>33.1.0</version>
+        </dependency>
+
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
