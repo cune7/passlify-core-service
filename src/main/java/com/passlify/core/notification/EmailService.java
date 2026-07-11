@@ -70,6 +70,32 @@ public class EmailService {
         }
     }
 
+    /**
+     * Notifies an invited collaborator. Best-effort: a mail failure must not break the
+     * invitation (the record is persisted regardless).
+     */
+    public void sendCollaboratorInvite(String toEmail, String eventName, String role, String inviterName) {
+        if (!enabled) {
+            log.debug("Mail disabled; skipping collaborator invite to {}", toEmail);
+            return;
+        }
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, false, "UTF-8");
+            helper.setFrom(from);
+            helper.setTo(toEmail);
+            helper.setSubject("You've been invited to help manage \"" + eventName + "\"");
+            helper.setText(inviterName + " invited you to collaborate on \"" + eventName
+                    + "\" as " + role + ".\n\nSign in to Passlify (" + baseUrl
+                    + ") with this email address to accept the invitation.\n");
+            mailSender.send(message);
+            log.info("Sent collaborator invite to {} for \"{}\"", toEmail, eventName);
+        } catch (MailException | jakarta.mail.MessagingException e) {
+            log.warn("Failed to send collaborator invite to {} ({}); the invitation is still active",
+                    toEmail, e.getMessage());
+        }
+    }
+
     private String body(Order order, List<Ticket> tickets, String eventName) {
         StringBuilder sb = new StringBuilder();
         sb.append("Hi").append(order.getCustomerName() != null ? " " + order.getCustomerName() : "").append(",\n\n");

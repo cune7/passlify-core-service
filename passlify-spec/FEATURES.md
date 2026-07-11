@@ -36,7 +36,8 @@ custom attendee-form fields, an organizer dashboard, and an organization/company
 - ✅ Paid events gated on a complete `COMPANY` organization (see `organization-domain-model`).
 - ✅ Public read API: `GET /api/v1/public/events` (list, PUBLIC only) + `GET /api/v1/public/events/{slug}` (PUBLIC + UNLISTED; PRIVATE 404s).
 - ✅ `EventType` hierarchy (§19): non-selectable category parents + selectable leaves (`code`/`parent`/`active`/`sortOrder`); create enforces a selectable leaf; `GET /api/v1/public/event-types` catalog. Migration V9.
-- ⏳ Later phases: collaborators/ownership (Phase 2), payment-capability approval + real Stripe/Raiffeisen (Phase 3), slug redirects + auto-completion (Phase 4). Exact §19.1 category catalog is a reference-data follow-up.
+- 🟡 Collaborators (§13, Phase 2 — in progress): `EventCollaborator` (event-scoped roles OWNER/MANAGER/EDITOR/VIEWER/CHECK_IN_OPERATOR); creator stored as ACCEPTED OWNER; invite by email → accept links Keycloak sub; `GET/POST/PATCH/DELETE /events/{id}/collaborators` + `/accept`; managed by owner/admin/manager; audited + email notification. Migration V10.
+- ⏳ Remaining: ownership transfer + full authorization matrix (EDITOR/MANAGER managing event/tickets), signed invitation tokens. Later phases: payment-capability approval + real Stripe/Raiffeisen (Phase 3), slug redirects + auto-completion (Phase 4). Exact §19.1 category catalog is a reference-data follow-up.
 
 ## Ticket types  `com.passlify.core.ticket`
 - ✅ CRUD within an event: `POST/GET /api/v1/events/{eventId}/ticket-types`, `PATCH/DELETE /api/v1/ticket-types/{id}`.

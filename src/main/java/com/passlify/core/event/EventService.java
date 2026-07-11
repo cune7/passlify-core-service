@@ -47,6 +47,7 @@ public class EventService {
     private final HtmlSanitizationService htmlSanitizer;
     private final EventAuditService audit;
     private final EventPublicationReadinessValidator readiness;
+    private final EventCollaboratorService collaborators;
     private final ApplicationEventPublisher domainEvents;
     private final String defaultCurrency;
 
@@ -60,6 +61,7 @@ public class EventService {
                         HtmlSanitizationService htmlSanitizer,
                         EventAuditService audit,
                         EventPublicationReadinessValidator readiness,
+                        EventCollaboratorService collaborators,
                         ApplicationEventPublisher domainEvents,
                         @Value("${passlify.default-currency:RSD}") String defaultCurrency) {
         this.events = events;
@@ -72,6 +74,7 @@ public class EventService {
         this.htmlSanitizer = htmlSanitizer;
         this.audit = audit;
         this.readiness = readiness;
+        this.collaborators = collaborators;
         this.domainEvents = domainEvents;
         this.defaultCurrency = defaultCurrency;
     }
@@ -110,6 +113,7 @@ public class EventService {
         e.setCreatedBy(subject);
         e.setUpdatedBy(subject);
         Event saved = events.save(e);
+        collaborators.createOwner(saved);
         audit.record(saved, EventAuditAction.EVENT_CREATED, null, null);
         domainEvents.publishEvent(
                 new EventDomainEvent.Created(saved.getId(), saved.getPublicId(), saved.getOrganizerId()));
