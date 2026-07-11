@@ -91,6 +91,9 @@ custom attendee-form fields, an organizer dashboard, and an organization/company
 
 ---
 
+- 🟡 **Raiffeisen gateway (Payten/NestPay 3D hosted page):** `RaiffeisenPaymentGateway` implemented + config-gated (`passlify.raiffeisen.enabled`, inert until merchant creds set). NestPay ver3 hash sign/verify (`NestPayHash`) unit-tested. Field set / hash version / result codes must be confirmed against the Raiffeisen merchant integration doc, and it needs test-env credentials to verify end-to-end.
+- 🟡 **Stripe gateway** — still `MockPaymentGateway`; real Stripe SDK deferred (task pending) in favour of Raiffeisen first.
+
 ## Notable gaps / next candidates
 1. 🟡 **Real Stripe integration** — replace `MockPaymentGateway` with a live Stripe Checkout + webhook implementation (biggest open item vs. MVP scope).
 2. ⏳ PIB check-digit validation (needs real known-good PIBs first — see `organization-domain-model`).

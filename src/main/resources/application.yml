@@ -40,6 +40,16 @@ passlify:
   # HMAC key for signing collaborator invitation tokens.
   invite-secret: ${PASSLIFY_INVITE_SECRET:dev-only-change-me-min-32-bytes-invite!!}
   base-url: ${APP_BASE_URL:http://localhost:8081}
+  # Raiffeisen (Payten/NestPay 3D hosted page). Inert until store-key is set; then the
+  # RAIFFEISEN gateway bean activates. Field names/hash version must be confirmed against
+  # the Raiffeisen merchant integration document.
+  raiffeisen:
+    enabled: ${RAIFFEISEN_ENABLED:false}
+    gateway-url: ${RAIFFEISEN_GATEWAY_URL:https://ecommerce.raiffeisenbank.rs/fim/est3Dgate}
+    client-id: ${RAIFFEISEN_CLIENT_ID:}
+    store-key: ${RAIFFEISEN_STORE_KEY:}
+    ok-url: ${RAIFFEISEN_OK_URL:http://localhost:8081/payments/raiffeisen/return}
+    fail-url: ${RAIFFEISEN_FAIL_URL:http://localhost:8081/payments/raiffeisen/return}
   mail:
     from: ${PASSLIFY_MAIL_FROM:tickets@passlify.rs}
     enabled: ${PASSLIFY_MAIL_ENABLED:true}
