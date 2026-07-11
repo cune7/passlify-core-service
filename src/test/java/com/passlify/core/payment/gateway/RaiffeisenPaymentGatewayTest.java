@@ -6,20 +6,23 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.passlify.core.common.error.ApiException;
 import com.passlify.core.order.Order;
 import com.passlify.core.payment.PaymentProvider;
-import java.util.LinkedHashMap;
-import java.util.Map;
+import java.security.KeyPair;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 class RaiffeisenPaymentGatewayTest {
 
-    private static final String STORE_KEY = "test-store-key";
+    // Merchant signs requests; the gateway (its own keypair) signs responses we verify.
+    private final KeyPair merchant = UpcSignatureTest.generate();
+    private final KeyPair bank = UpcSignatureTest.generate();
+
     private final RaiffeisenPaymentGateway gateway = new RaiffeisenPaymentGateway(
-            "https://bank.example/est3Dgate", "100000", STORE_KEY,
-            "https://app.example/ok", "https://app.example/fail");
+            "https://ecg.test/go/enter", "1753019", "E7881019", "en",
+            UpcSignatureTest.pem("PRIVATE KEY", merchant.getPrivate().getEncoded()),
+            UpcSignatureTest.pem("PUBLIC KEY", bank.getPublic().getEncoded()));
 
     @Test
-    void createSessionBuildsASignedHostedPageUrl() {
+    void createSessionBuildsSignedRedirectFields() {
         Order order = new Order();
         order.setId(UUID.randomUUID());
         order.setTotalMinor(150_000L);
@@ -27,42 +30,44 @@ class RaiffeisenPaymentGatewayTest {
 
         CheckoutSession session = gateway.createSession(order, null, null);
         assertThat(gateway.provider()).isEqualTo(PaymentProvider.RAIFFEISEN);
-        assertThat(session.checkoutUrl()).startsWith("https://bank.example/est3Dgate?");
-        assertThat(session.checkoutUrl()).contains("currency=941").contains("amount=1500.00");
-        assertThat(session.sessionId()).isEqualTo(order.getId().toString());
+        assertThat(session.checkoutUrl()).startsWith("https://ecg.test/go/enter?");
+        assertThat(session.checkoutUrl())
+                .contains("Currency=941").contains("TotalAmount=150000")
+                .contains("MerchantID=1753019").contains("Signature=");
+        assertThat(session.sessionId()).hasSize(20);
     }
 
     @Test
-    void verifyAndParseAcceptsApprovedCallbackAndRejectsTamperedHash() {
-        Map<String, String> params = new LinkedHashMap<>();
-        params.put("oid", "order-1");
-        params.put("Response", "Approved");
-        params.put("ProcReturnCode", "00");
-        params.put("TransId", "txn-9");
-        String body = "oid=order-1&Response=Approved&ProcReturnCode=00&TransId=txn-9&HASH="
-                + urlEncode(NestPayHash.compute(params, STORE_KEY));
-
+    void verifyAndParseAcceptsApprovedSignedCallback() {
+        String body = signedCallback("000", "txn-9");
         PaymentEvent event = gateway.verifyAndParse(body, null);
         assertThat(event.type()).isEqualTo(PaymentEvent.Type.PAID);
-        assertThat(event.sessionId()).isEqualTo("order-1");
+        assertThat(event.sessionId()).isEqualTo("ORDER123");
         assertThat(event.intentId()).isEqualTo("txn-9");
-
-        assertThatThrownBy(() -> gateway.verifyAndParse(body + "tampered", null))
-                .isInstanceOf(ApiException.class);
     }
 
     @Test
-    void declinedCallbackMapsToFailed() {
-        Map<String, String> params = new LinkedHashMap<>();
-        params.put("oid", "order-2");
-        params.put("Response", "Declined");
-        String body = "oid=order-2&Response=Declined&HASH="
-                + urlEncode(NestPayHash.compute(params, STORE_KEY));
-
-        assertThat(gateway.verifyAndParse(body, null).type()).isEqualTo(PaymentEvent.Type.FAILED);
+    void declinedTranCodeMapsToFailed() {
+        assertThat(gateway.verifyAndParse(signedCallback("116", "txn-1"), null).type())
+                .isEqualTo(PaymentEvent.Type.FAILED);
     }
 
-    private static String urlEncode(String v) {
-        return java.net.URLEncoder.encode(v, java.nio.charset.StandardCharsets.UTF_8);
+    @Test
+    void tamperedCallbackIsRejected() {
+        String tampered = signedCallback("000", "txn-9").replace("TotalAmount=500", "TotalAmount=999");
+        assertThatThrownBy(() -> gateway.verifyAndParse(tampered, null)).isInstanceOf(ApiException.class);
+    }
+
+    /** Builds a NOTIFY body signed with the bank key, matching the gateway's response datafile order. */
+    private String signedCallback(String tranCode, String xid) {
+        String merchantId = "1753019", terminalId = "E7881019", purchaseTime = "190101120000";
+        String orderId = "ORDER123", currency = "941", amount = "500", sd = "", approvalCode = "APPR01";
+        String datafile = String.join(";",
+                merchantId, terminalId, purchaseTime, orderId, xid, currency, amount, sd, tranCode, approvalCode) + ";";
+        String signature = UpcSignature.sign(datafile, bank.getPrivate());
+        return "MerchantID=" + merchantId + "&TerminalID=" + terminalId + "&PurchaseTime=" + purchaseTime
+                + "&OrderID=" + orderId + "&XID=" + xid + "&Currency=" + currency + "&TotalAmount=" + amount
+                + "&SD=" + sd + "&TranCode=" + tranCode + "&ApprovalCode=" + approvalCode
+                + "&Signature=" + java.net.URLEncoder.encode(signature, java.nio.charset.StandardCharsets.UTF_8);
     }
 }
