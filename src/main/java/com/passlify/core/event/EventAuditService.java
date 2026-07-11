@@ -37,10 +37,20 @@ public class EventAuditService {
 
     /** Records an audited change. {@code changedFields} may be null/empty for actions with no diff. */
     public void record(Event event, EventAuditAction action, Map<String, ?> changedFields, String reason) {
+        recordAs(currentUser.requireSubject(), event, action, changedFields, reason);
+    }
+
+    /** Records a system-initiated change (no authenticated actor), e.g. the auto-completion sweep. */
+    public void recordSystem(Event event, EventAuditAction action, String reason) {
+        recordAs("system", event, action, null, reason);
+    }
+
+    private void recordAs(String actor, Event event, EventAuditAction action,
+                          Map<String, ?> changedFields, String reason) {
         EventAuditEntry entry = new EventAuditEntry();
         entry.setEventId(event.getId());
         entry.setEventPublicId(event.getPublicId());
-        entry.setActorUserId(currentUser.requireSubject());
+        entry.setActorUserId(actor);
         entry.setAction(action);
         entry.setChangedFields(toJson(changedFields));
         entry.setReason(reason);

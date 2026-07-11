@@ -111,6 +111,10 @@ public class Event extends BaseEntity {
 
     private Integer capacity;
 
+    /** Admin per-event override of the auto-completion grace (hours after endsAt); null → platform default. */
+    @Column(name = "auto_complete_grace_hours")
+    private Integer autoCompleteGraceHours;
+
     @JdbcTypeCode(SqlTypes.ARRAY)
     @Column(name = "tags", columnDefinition = "text[]")
     private List<String> tags;

@@ -257,6 +257,30 @@ public class EventService {
         return readiness.check(load(id, EventCapability.VIEW));
     }
 
+    /**
+     * System auto-completion (no authenticated actor): flips an ended PUBLISHED event to
+     * COMPLETED. Idempotent and skips non-PUBLISHED events. Called by the scheduled sweep.
+     */
+    @Transactional
+    public void autoComplete(UUID id) {
+        Event e = events.findById(id).orElse(null);
+        if (e == null || e.getStatus() != EventStatus.PUBLISHED) {
+            return;
+        }
+        e.setStatus(EventStatus.COMPLETED);
+        audit.recordSystem(e, EventAuditAction.EVENT_COMPLETED, "Auto-completed after grace period");
+        domainEvents.publishEvent(new EventDomainEvent.Completed(e.getId(), e.getPublicId()));
+    }
+
+    /** Admin: override (or clear, with null) the per-event auto-completion grace, in hours. */
+    @Transactional
+    public Event setAutoCompleteGrace(UUID id, Integer graceHours) {
+        Event e = events.findById(id)
+                .orElseThrow(() -> ApiException.notFound("Event not found: " + id));
+        e.setAutoCompleteGraceHours(graceHours);
+        return e;
+    }
+
     /** Transfer ownership to an accepted collaborator (delegates; enforces owner/admin). */
     @Transactional
     public CollaboratorResponse transferOwnership(UUID id, TransferOwnershipRequest req) {

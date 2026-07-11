@@ -20,6 +20,7 @@ project at `src/main/resources/db/migration/` and Flyway applies them on startup
 | `V12__payment_capabilities.sql` | `organizer_payment_capability` (admin-granted provider access) |
 | `V13__webhook_payload_text.sql` | `webhook_event.payload` jsonb → text (non-JSON provider bodies) |
 | `V14__organization_bank_details.sql` | `organization` bank account fields (MANUAL payments) |
+| `V15__event_auto_complete_grace.sql` | `event.auto_complete_grace_hours` (per-event auto-completion override) |
 
 ## Design choices (so they match the JPA entities)
 - **snake_case columns.** Spring Boot's default `CamelCaseToUnderscoresNamingStrategy` maps entity

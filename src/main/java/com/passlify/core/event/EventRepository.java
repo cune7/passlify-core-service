@@ -23,4 +23,7 @@ public interface EventRepository extends JpaRepository<Event, UUID>, JpaSpecific
             String slug, EventStatus status, Collection<Visibility> visibilities);
 
     boolean existsBySlug(String slug);
+
+    /** Published events whose end time has passed — candidates for auto-completion. */
+    java.util.List<Event> findByStatusAndEndsAtBefore(EventStatus status, java.time.Instant cutoff);
 }

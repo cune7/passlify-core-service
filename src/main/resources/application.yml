@@ -37,6 +37,11 @@ passlify:
   default-currency: ${PASSLIFY_DEFAULT_CURRENCY:RSD}
   # How long a MANUAL (bank-transfer) order holds inventory awaiting confirmation.
   manual-payment-hold-hours: ${MANUAL_PAYMENT_HOLD_HOURS:72}
+  event:
+    # Default hours after an event's endsAt before it auto-completes (admin can override per event).
+    auto-complete-grace-hours: ${EVENT_AUTO_COMPLETE_GRACE_HOURS:24}
+    # How often the auto-completion sweep runs (ms).
+    auto-complete-interval-ms: ${EVENT_AUTO_COMPLETE_INTERVAL_MS:3600000}
   # HMAC key for signing ticket QR tokens (used from the issuance slice onward).
   qr-secret: ${PASSLIFY_QR_SECRET:dev-only-change-me-min-32-bytes-secret!!}
   # HMAC key for signing collaborator invitation tokens.

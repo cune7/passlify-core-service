@@ -24,8 +24,9 @@ custom attendee-form fields, an organizer dashboard, and an organization/company
 - **Phase 3 — Commercial control 🟡 in progress.** Payment capabilities (§10) ✅ done;
   Raiffeisen gateway 🟡 config-gated + unit-tested but unverified against the bank; real Stripe
   SDK ⏳ pending. Migration V12.
-- **Phase 4 — Advanced lifecycle ⏳ not started.** Slug redirects, automated completion,
-  attendee schedule-change notifications, private-event invitations, event archival.
+- **Phase 4 — Advanced lifecycle 🟡 in progress.** ✅ automated completion (scheduled sweep,
+  per-event admin grace override). Remaining: slug redirects, attendee schedule-change
+  notifications, private-event invitations, event archival.
 
 Test coverage: 68 tests (unit + Testcontainers-Postgres integration), all green.
 
@@ -49,6 +50,7 @@ Test coverage: 68 tests (unit + Testcontainers-Postgres integration), all green.
 - ✅ Explicit `AttendanceMode` (IN_PERSON/ONLINE/HYBRID) and `CommercialMode` (FREE/PAID); `Visibility` PUBLIC/UNLISTED/PRIVATE.
 - ✅ Sanitized rich-text `descriptionHtml` (+ plain-text projection); embedded event contact/social links.
 - ✅ Lifecycle: `POST /{id}/publish` (one-way — no unpublish), `/cancel` (reason required), `/complete`. `EventStatus`: DRAFT · PUBLISHED · CANCELLED · COMPLETED.
+- ✅ Auto-completion (§7.4): a scheduled sweep flips PUBLISHED events past `endsAt` + grace to COMPLETED (system-audited, emits `EventCompletedEvent`). Grace defaults to `passlify.event.auto-complete-grace-hours` (24h); an admin overrides it per event via `PUT /api/v1/admin/events/{id}/auto-complete-grace`. Migration V15.
 - ✅ `GET /{id}/publication-readiness` — structured violation checklist (name, type, location/online per mode, contact, tickets, paid company+provider, capacity).
 - ✅ `GET/PUT /{id}/settings` — age, entry, country restriction (hard-reject when empty), rules (§20).
 - ✅ `GET/PUT /{id}/online-access` — join URL/instructions for ONLINE/HYBRID (§14.5).

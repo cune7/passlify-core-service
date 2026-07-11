@@ -286,6 +286,7 @@ non-participants get `404`, insufficient role `403`.
 - `GET/PUT /api/v1/events/{id}/settings` — age / entry / country restriction / rules
 - `GET/PUT /api/v1/events/{id}/online-access` — ONLINE/HYBRID join config
 - `GET  /api/v1/events/{id}/audit` — immutable audit history (paged)
+- `PUT  /api/v1/admin/events/{id}/auto-complete-grace` — ADMIN: override per-event auto-completion grace (`{ "graceHours": 24 }`, null = default). Ended PUBLISHED events auto-complete after `endsAt` + grace.
 
 **Collaborators (§13)**
 - `GET/POST /api/v1/events/{id}/collaborators` — list / invite (by email + role)

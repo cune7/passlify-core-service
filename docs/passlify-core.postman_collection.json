@@ -531,6 +531,23 @@
           }
         },
         {
+          "name": "Admin: set auto-complete grace",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"graceHours\": 24\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/events/{{eventId}}/auto-complete-grace",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "events", "{{eventId}}", "auto-complete-grace"]
+            },
+            "description": "ADMIN only. Override the per-event auto-completion grace (hours after endsAt); null resets to the platform default (24h)."
+          }
+        },
+        {
           "name": "Transfer ownership",
           "request": {
             "method": "POST",
