@@ -43,7 +43,7 @@ Test coverage: 68 tests (unit + Testcontainers-Postgres integration), all green.
 - ✅ Serbia tax-id validation (`VatNumbers`): PIB 9-digit, MBR 8-digit. PIB check-digit intentionally deferred.
 - Company/billing data is in Postgres, not Keycloak. See memory `organization-domain-model`.
 
-## Events  `com.passlify.core.event`  *(EVENT_DOMAIN_SPEC Phase 1 built)*
+## Events  `com.passlify.core.event`  *(EVENT_DOMAIN_SPEC Phases 1–2 built)*
 - ✅ CRUD (organizer-scoped): `POST /api/v1/events`, `GET /{id}`, `GET` (list), `PATCH /{id}` (optimistic `version` → 409 on stale edit).
 - ✅ Identity: immutable ULID `publicId` + human `slug` (DRAFT-only slug edits). Mandatory IANA `timezone`.
 - ✅ Explicit `AttendanceMode` (IN_PERSON/ONLINE/HYBRID) and `CommercialMode` (FREE/PAID); `Visibility` PUBLIC/UNLISTED/PRIVATE.
