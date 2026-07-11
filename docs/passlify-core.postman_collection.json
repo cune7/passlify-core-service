@@ -240,6 +240,19 @@
           }
         },
         {
+          "name": "Publication readiness",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/events/{{eventId}}/publication-readiness",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "events", "{{eventId}}", "publication-readiness"]
+            },
+            "description": "Structured checklist of what is still missing before the event can be published."
+          }
+        },
+        {
           "name": "Publish event",
           "request": {
             "method": "POST",
@@ -249,19 +262,96 @@
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "events", "{{eventId}}", "publish"]
             },
-            "description": "Requires at least one active ticket type."
+            "description": "One-way. Requires at least one active ticket type (paid → COMPANY profile + provider)."
+          }
+        },
+        {
+          "name": "Complete event",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/events/{{eventId}}/complete",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "events", "{{eventId}}", "complete"]
+            },
+            "description": "Published → Completed."
           }
         },
         {
           "name": "Cancel event",
           "request": {
             "method": "POST",
-            "header": [],
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"The venue is no longer available.\"\n}"
+            },
             "url": {
               "raw": "{{baseUrl}}/api/v1/events/{{eventId}}/cancel",
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "events", "{{eventId}}", "cancel"]
+            },
+            "description": "Reason is required and recorded in the audit trail."
+          }
+        },
+        {
+          "name": "Get event settings",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/events/{{eventId}}/settings",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "events", "{{eventId}}", "settings"]
             }
+          }
+        },
+        {
+          "name": "Update event settings",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"minimumAge\": 18,\n  \"ticketsAvailableAtEntrance\": true,\n  \"visitorCountryRestrictionEnabled\": false,\n  \"multipleEntryAllowed\": false,\n  \"peopleWithDisabilitiesFreeEntry\": true,\n  \"childrenFreeEntryAge\": 7,\n  \"termsHtml\": \"<p>Be respectful.</p>\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/events/{{eventId}}/settings",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "events", "{{eventId}}", "settings"]
+            },
+            "description": "Full replace. If visitorCountryRestrictionEnabled is true, allowedVisitorCountryCodes (ISO alpha-2) must be non-empty."
+          }
+        },
+        {
+          "name": "Update online access",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"publicUrl\": \"https://meet.example.com/passlify\",\n  \"platformName\": \"Google Meet\",\n  \"accessInstructionsHtml\": \"<p>Join 10 minutes early.</p>\",\n  \"revealOnlyAfterRegistration\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/events/{{eventId}}/online-access",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "events", "{{eventId}}", "online-access"]
+            },
+            "description": "For ONLINE / HYBRID events. Join URL must be https."
+          }
+        },
+        {
+          "name": "Event audit trail",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/events/{{eventId}}/audit",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "events", "{{eventId}}", "audit"]
+            },
+            "description": "Reverse-chronological audit history of the event."
           }
         }
       ]

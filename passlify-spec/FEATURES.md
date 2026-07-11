@@ -23,11 +23,19 @@ custom attendee-form fields, an organizer dashboard, and an organization/company
 - ✅ Serbia tax-id validation (`VatNumbers`): PIB 9-digit, MBR 8-digit. PIB check-digit intentionally deferred.
 - Company/billing data is in Postgres, not Keycloak. See memory `organization-domain-model`.
 
-## Events  `com.passlify.core.event`
-- ✅ CRUD (organizer-scoped): `POST /api/v1/events`, `GET /{id}`, `GET` (list), `PATCH /{id}`.
-- ✅ Lifecycle: `POST /{id}/publish` (one-way — no unpublish), `/cancel`. `EventStatus`: DRAFT · PUBLISHED · CANCELLED · COMPLETED.
+## Events  `com.passlify.core.event`  *(EVENT_DOMAIN_SPEC Phase 1 built)*
+- ✅ CRUD (organizer-scoped): `POST /api/v1/events`, `GET /{id}`, `GET` (list), `PATCH /{id}` (optimistic `version` → 409 on stale edit).
+- ✅ Identity: immutable ULID `publicId` + human `slug` (DRAFT-only slug edits). Mandatory IANA `timezone`.
+- ✅ Explicit `AttendanceMode` (IN_PERSON/ONLINE/HYBRID) and `CommercialMode` (FREE/PAID); `Visibility` PUBLIC/UNLISTED/PRIVATE.
+- ✅ Sanitized rich-text `descriptionHtml` (+ plain-text projection); embedded event contact/social links.
+- ✅ Lifecycle: `POST /{id}/publish` (one-way — no unpublish), `/cancel` (reason required), `/complete`. `EventStatus`: DRAFT · PUBLISHED · CANCELLED · COMPLETED.
+- ✅ `GET /{id}/publication-readiness` — structured violation checklist (name, type, location/online per mode, contact, tickets, paid company+provider, capacity).
+- ✅ `GET/PUT /{id}/settings` — age, entry, country restriction (hard-reject when empty), rules (§20).
+- ✅ `GET/PUT /{id}/online-access` — join URL/instructions for ONLINE/HYBRID (§14.5).
+- ✅ Immutable audit trail (`EventAuditEntry`, JSON diff) + `GET /{id}/audit`; domain events published for cross-module reactions.
 - ✅ Paid events gated on a complete `COMPANY` organization (see `organization-domain-model`).
-- ✅ Public read API: `GET /api/v1/public/events` (list) + `GET /api/v1/public/events/{slug}` — only PUBLISHED + PUBLIC.
+- ✅ Public read API: `GET /api/v1/public/events` (list, PUBLIC only) + `GET /api/v1/public/events/{slug}` (PUBLIC + UNLISTED; PRIVATE 404s).
+- ⏳ Remaining Phase 1: `EventType` hierarchy (parent/code/selectable) + reseed (§19); collaborators, payment-capability approval, slug redirects, auto-completion are later phases.
 
 ## Ticket types  `com.passlify.core.ticket`
 - ✅ CRUD within an event: `POST/GET /api/v1/events/{eventId}/ticket-types`, `PATCH/DELETE /api/v1/ticket-types/{id}`.
