@@ -17,8 +17,11 @@ simplified and corrected — the legacy bloat and bugs are intentionally left be
 | [DOMAIN.md](./DOMAIN.md) | Entities, fields, relationships, enums, and the **business rules/flows** |
 | [ARCHITECTURE.md](./ARCHITECTURE.md) | Stack, package layout, layering, conventions, testing |
 | [BUILD-SETUP.md](./BUILD-SETUP.md) | Maven deps, `application.yml`, env vars, local infra, first-boot checklist |
-| [DATABASE.md](./DATABASE.md) | Schema/migration notes + the ready-to-run `db/migration/*.sql` |
-| [API.md](./API.md) | REST endpoint contract: methods, paths, request/response shapes, status codes, roles |
+| [DATABASE.md](./DATABASE.md) | Schema/migration notes (V1–V13) + entity↔table map |
+| [API.md](./API.md) | REST endpoint contract: MVP core (§1–7) + Phase 1–3 additions (§8) |
+| [FEATURES.md](./FEATURES.md) | **Live** feature/endpoint index by module + EVENT_DOMAIN_SPEC phase status |
+| [EVENT_DOMAIN_SPEC.md](./EVENT_DOMAIN_SPEC.md) | Full Event-domain functional/technical spec (Phases 1–4) |
+| [PAYMENTS.md](./PAYMENTS.md) | Providers, capabilities, gateway model + the Raiffeisen/UPC integration runbook |
 
 ## The core flow (the whole point)
 > Organizer creates event + ticket types → buyer checks out (server-priced, inventory reserved

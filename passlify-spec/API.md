@@ -3,6 +3,10 @@
 > REST contract for the MVP slices. Pairs with [DOMAIN.md](./DOMAIN.md) (entities/rules) and
 > [SCOPE.md](./SCOPE.md) (build order). springdoc generates the live OpenAPI from your code — this
 > is the human design target, not the generated artifact.
+>
+> **§1–7 below cover the original MVP.** The Event domain (Phases 1–3) and payments added many
+> endpoints since — those are summarized in **§8 (Phase 1–3 additions)** and catalogued fully, always
+> current, in [FEATURES.md](./FEATURES.md) and [PAYMENTS.md](./PAYMENTS.md).
 
 ## Conventions
 - Base path: **`/api/v1`**. JSON in/out. Plural nouns.
@@ -140,25 +144,27 @@ Owner or guest-with-id. Response `200`: `OrderResponse` (status, items, payment 
 
 ---
 
-## 5. Payment (Stripe)
+## 5. Payment (provider-agnostic)
 
-### `POST /api/v1/orders/{id}/payment-session` — create Stripe Checkout Session
-Body: optional `{ "successUrl": "...", "cancelUrl": "..." }` (defaults from `returnUrl`).
-Server creates a Stripe Checkout Session with `metadata.orderId`, persists a `Payment`
-(`status=PENDING`, `stripeSessionId`). Response `201`:
+The event's `PaymentProvider` selects a gateway (`MOCK`/`RAIFFEISEN`/… — see
+[PAYMENTS.md](./PAYMENTS.md)). Stripe is not yet wired (still `MockPaymentGateway`).
+
+### `POST /api/v1/orders/{id}/payment-session` — create a hosted checkout session
+Body: optional `{ "successUrl": "...", "cancelUrl": "..." }`. Server asks the provider's
+gateway to create a checkout, persists a `Payment` (`status=PENDING`). Response `201`:
 ```json
-{ "paymentId": "…uuid", "checkoutUrl": "https://checkout.stripe.com/c/pay/cs_…", "sessionId": "cs_…" }
+{ "paymentId": "…uuid", "checkoutUrl": "https://…", "sessionId": "…" }
 ```
 Client redirects the buyer to `checkoutUrl`. Only valid while order is `PENDING_PAYMENT` → else `409`.
 
-### `POST /api/v1/webhooks/stripe` — Stripe webhook (no app auth)
+### `POST /api/v1/webhooks/{provider}` — provider webhook (no app auth)
 - **Raw body required** for signature verification (ARCHITECTURE §4.7).
-- Verify `Stripe-Signature` against `STRIPE_WEBHOOK_SECRET` → `400` on failure.
-- Record event in `stripe_event` (dedup, DOMAIN §4.3); duplicates → `200` no-op.
-- Handle: `checkout.session.completed`, `payment_intent.succeeded` → order `PAID` + issue tickets;
-  `payment_intent.payment_failed` → order `FAILED` + release inventory;
-  `charge.refunded` → refund flow (DOMAIN §4.8).
-- Always respond **`200`** fast for received events.
+- The matching gateway verifies the signature → `400` on failure.
+- Record event in `webhook_event` keyed on `(provider, eventId)` (dedup, DOMAIN §4.3); duplicates → no-op.
+- Normalized to PAID → order `PAID` + issue tickets; FAILED → order `FAILED` + release inventory;
+  REFUNDED → refund flow (DOMAIN §4.8).
+- MOCK: POST `{"type":"PAID","sessionId":"mock_sess_…"}` to `/api/v1/webhooks/mock` to simulate.
+- Raiffeisen/UPC uses a dedicated notify handshake — see §8 / PAYMENTS.md.
 
 ---
 
@@ -263,3 +269,41 @@ qrUrl, pdfUrl
 
 > Scan denials are **not** HTTP errors — `POST /scan` returns `200` with `result:"DENIED"`. This keeps
 > the gate client simple (every scan is a 200 with a verdict).
+
+---
+
+## 8. Phase 1–3 additions (Event domain + payments)
+
+Summary index; see [FEATURES.md](./FEATURES.md) for full detail and [PAYMENTS.md](./PAYMENTS.md)
+for the provider/gateway model. Authorization is the event permission matrix (§13.2):
+non-participants get `404`, insufficient role `403`.
+
+**Events — lifecycle & config**
+- `POST /api/v1/events/{id}/publish` — one-way (no unpublish); gated on readiness + paid capability
+- `POST /api/v1/events/{id}/cancel` — body `{ "reason": "…" }` (required)
+- `POST /api/v1/events/{id}/complete` — PUBLISHED → COMPLETED
+- `GET  /api/v1/events/{id}/publication-readiness` — structured violation checklist
+- `GET/PUT /api/v1/events/{id}/settings` — age / entry / country restriction / rules
+- `GET/PUT /api/v1/events/{id}/online-access` — ONLINE/HYBRID join config
+- `GET  /api/v1/events/{id}/audit` — immutable audit history (paged)
+
+**Collaborators (§13)**
+- `GET/POST /api/v1/events/{id}/collaborators` — list / invite (by email + role)
+- `PATCH/DELETE /api/v1/events/{id}/collaborators/{collaboratorId}` — re-role / remove
+- `POST /api/v1/events/{id}/collaborators/accept` — body `{ "token": "…" }` (signed, expiring invite)
+- `POST /api/v1/events/{id}/transfer-ownership` — body `{ "targetCollaboratorId", "confirm": true }`
+
+**Event types (public catalog)**
+- `GET /api/v1/public/event-types` — active category/leaf hierarchy
+
+**Payment capabilities (§10)** — see PAYMENTS.md
+- `POST/GET /api/v1/admin/organizations/{organizationId}/payment-capabilities` (ADMIN)
+- `PATCH /api/v1/admin/payment-capabilities/{capabilityId}` (ADMIN)
+- `GET /api/v1/me/payment-capabilities`
+
+**Organization**
+- `GET/PUT /api/v1/me/organization` · `GET /api/v1/admin/organizations` (ADMIN)
+
+**Raiffeisen/UPC (only when enabled)**
+- `GET /api/v1/public/payments/raiffeisen/redirect/{orderRef}` — auto-submit form to the bank
+- `POST /api/v1/webhooks/raiffeisen/notify` — NOTIFY handshake (`Response.action=approve`/`reverse`)

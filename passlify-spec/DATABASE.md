@@ -6,8 +6,19 @@ project at `src/main/resources/db/migration/` and Flyway applies them on startup
 ## Migrations
 | File | What it does |
 |------|--------------|
-| `db/migration/V1__baseline.sql` | All 10 tables + constraints + indexes |
-| `db/migration/V2__seed_event_types.sql` | Seeds `event_type` reference rows (idempotent) |
+| `V1__baseline.sql` | Baseline: event, ticket_type, orders, order_item, payment, webhook_event, ticket, ticket_scan, event_type, location |
+| `V2__seed_event_types.sql` | Seeds `event_type` reference rows (idempotent) |
+| `V3__custom_fields_and_attendees.sql` | Per-event custom fields + attendee data |
+| `V4__organization.sql` | `organization` (company/billing) + `event.organization_id` |
+| `V5__event_domain_foundation.sql` | Event: public_id, timezone, attendance/commercial mode, description_html, version, contact, created/updated_by; widened visibility/provider CHECKs |
+| `V6__event_settings.sql` | `event_settings` (age, entry, country restriction, rules) |
+| `V7__event_online_access.sql` | `event_online_access` (ONLINE/HYBRID join URL) |
+| `V8__event_audit_entries.sql` | `event_audit_entries` (immutable audit, jsonb diff) |
+| `V9__event_type_hierarchy.sql` | `event_type` → category/leaf hierarchy (code, parent, selectable, active, sort_order) |
+| `V10__event_collaborators.sql` | `event_collaborators` (roles, invitations) |
+| `V11__collaborator_invite_expiry.sql` | `event_collaborators.expires_at` |
+| `V12__payment_capabilities.sql` | `organizer_payment_capability` (admin-granted provider access) |
+| `V13__webhook_payload_text.sql` | `webhook_event.payload` jsonb → text (non-JSON provider bodies) |
 
 ## Design choices (so they match the JPA entities)
 - **snake_case columns.** Spring Boot's default `CamelCaseToUnderscoresNamingStrategy` maps entity
@@ -34,8 +45,9 @@ These back up the application logic (defense in depth — DON'T rely on them alo
 - `ck_event_dates` — `ends_at > starts_at`.
 - `ck_payment_amounts` — `refunded_minor <= amount_minor`.
 - `uq_ticket_serial` / `uq_ticket_qr_token` — guarantee ticket identity/QR uniqueness.
-- `stripe_event` PK on the Stripe event id — the idempotency guard (DOMAIN §4.3): a duplicate
-  insert throws, which your handler treats as "already seen".
+- `webhook_event` PK on `(provider, event id)` — the provider-agnostic idempotency guard
+  (DOMAIN §4.3): a duplicate insert throws, which the handler treats as "already seen".
+  (Was Stripe-only `stripe_event` in the original spec; now `WebhookEvent`.)
 
 ## Foreign-key delete behavior
 - `order_item`, `payment` → `orders`: `ON DELETE CASCADE` (deleting an order cleans up its lines).
@@ -65,6 +77,14 @@ These back up the application logic (defense in depth — DON'T rely on them alo
 | `Order` | `orders` |
 | `OrderItem` | `order_item` |
 | `Payment` | `payment` |
-| `StripeEvent` | `stripe_event` |
+| `WebhookEvent` | `webhook_event` |
+| `OrganizerPaymentCapability` | `organizer_payment_capability` |
 | `Ticket` | `ticket` |
 | `TicketScan` | `ticket_scan` |
+| `Organization` | `organization` |
+| `EventSettings` | `event_settings` |
+| `EventOnlineAccess` | `event_online_access` |
+| `EventAuditEntry` | `event_audit_entries` |
+| `EventCollaborator` | `event_collaborators` |
+
+> The full, always-current feature/endpoint index lives in [FEATURES.md](./FEATURES.md).
