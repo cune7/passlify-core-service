@@ -1,7 +1,7 @@
 # Passlify Core — Feature List
 
 > Current state of the service, module by module. Updated through EVENT_DOMAIN_SPEC
-> Phase 3 (migrations V1–V12). Legend:
+> Phases 1–4 (migrations V1–V18). Legend:
 > ✅ implemented & wired · 🟡 implemented but stubbed/unverified · ⏳ modelled, not built.
 
 The MVP spine is complete end-to-end: **organizer creates event + ticket types →
@@ -21,14 +21,16 @@ custom attendee-form fields, an organizer dashboard, and an organization/company
 - **Phase 2 — Collaboration ✅ complete.** Event collaborators + roles (§13), invite→accept,
   ownership transfer (§13.4), full authorization matrix (§13.2), signed & expiring invitation
   tokens (§38). Migrations V10–V11.
-- **Phase 3 — Commercial control 🟡 in progress.** Payment capabilities (§10) ✅ done;
-  Raiffeisen gateway 🟡 config-gated + unit-tested but unverified against the bank; real Stripe
-  SDK ⏳ pending. Migration V12.
+- **Phase 3 — Commercial control ✅ built (2 gateways awaiting live creds).** Payment
+  capabilities (§10) ✅; MANUAL (bank-transfer) provider ✅; refunds — reactive + initiated ✅.
+  Real gateways implemented + config-gated + tested but not yet verified against the provider:
+  Stripe 🟡 (needs test-mode keys) and Raiffeisen/UPC 🟡 (needs merchant test creds).
+  Migrations V12–V14.
 - **Phase 4 — Advanced lifecycle ✅ complete.** Automated completion (scheduled sweep,
   per-event admin grace override); slug redirects; schedule-change notifications; event
-  archival; private-event access grants.
+  archival; private-event access grants. Migrations V15–V18.
 
-Test coverage: 68 tests (unit + Testcontainers-Postgres integration), all green.
+Test coverage: 96 tests (unit + Testcontainers-Postgres integration), all green.
 
 ---
 
@@ -44,7 +46,7 @@ Test coverage: 68 tests (unit + Testcontainers-Postgres integration), all green.
 - ✅ Serbia tax-id validation (`VatNumbers`): PIB 9-digit, MBR 8-digit. PIB check-digit intentionally deferred.
 - Company/billing data is in Postgres, not Keycloak. See memory `organization-domain-model`.
 
-## Events  `com.passlify.core.event`  *(EVENT_DOMAIN_SPEC Phases 1–2 built)*
+## Events  `com.passlify.core.event`  *(EVENT_DOMAIN_SPEC Phases 1–4 built)*
 - ✅ CRUD (organizer-scoped): `POST /api/v1/events`, `GET /{id}`, `GET` (list — defaults to non-archived; `?includeArchived=true` for reporting/history), `PATCH /{id}` (optimistic `version` → 409 on stale edit).
 - ✅ Archival: `POST /{id}/archive` + `/unarchive` (owner/manager/admin) — retires an event from the default board without deleting data; audited (`EVENT_ARCHIVED`). Migration V17.
 - ✅ Identity: immutable ULID `publicId` + human `slug` (editable any time; a retired published slug 301s to the current one via `EventSlugRedirect`, V16). Mandatory IANA `timezone`.
@@ -81,9 +83,8 @@ Test coverage: 68 tests (unit + Testcontainers-Postgres integration), all green.
 - Fields modelled for later: `discountMinor`, `taxMinor`, `meta` (campaign).
 
 ## Payments  `com.passlify.core.payment`
-- 🟡 **Payment gateway is a `MockPaymentGateway`** — real Stripe SDK is NOT wired in yet. This is the main gap vs. the MVP scope.
-- ✅ Gateway abstraction: `PaymentGateway` + `PaymentGatewayRegistry` + `PaymentProvider` enum (ready for Stripe/others to slot in).
-- ✅ `POST /api/v1/orders/{id}/payment-session` — create a checkout session (currently via mock).
+- ✅ Gateway abstraction: `PaymentGateway` + `PaymentGatewayRegistry` + `PaymentProvider` enum (NONE/MOCK/MANUAL/RAIFFEISEN/STRIPE). Providers: MOCK ✅, MANUAL ✅, Stripe 🟡 (built, config-gated), Raiffeisen 🟡 (built, config-gated). Full runbook: [PAYMENTS.md](./PAYMENTS.md).
+- ✅ `POST /api/v1/orders/{id}/payment-session` — create a hosted checkout session via the event's provider.
 - ✅ `POST /api/v1/webhooks/{provider}` — webhook handling with an **idempotency ledger** (`WebhookEvent` / `WebhookEventKey`).
 - ✅ `PaymentStatus`: PENDING · SUCCEEDED · FAILED · REFUNDED · PARTIALLY_REFUNDED.
 - ✅ Refund handling — reactive (provider `charge.refunded` webhook) **and initiated** (`POST /api/v1/orders/{id}/refund`, owner/manager `MANAGE_PAYMENTS` or admin; full or partial). Shared `applyRefund`: mark refunded, VOID tickets + release inventory on full. Per-provider money movement via `PaymentGateway.refund` (Stripe `Refund.create`; MANUAL/MOCK no-op; Raiffeisen portal reversal).
@@ -111,7 +112,7 @@ Test coverage: 68 tests (unit + Testcontainers-Postgres integration), all green.
   *(Reporting was "deferred" in scope — a basic organizer dashboard now exists.)*
 
 ## Cross-cutting  `com.passlify.core.common`, `config`
-- ✅ Flyway migrations V1–V12 (baseline → event-type seed → custom fields/attendees → organization → event foundation → settings → online access → audit → event-type hierarchy → collaborators → invite expiry → payment capabilities).
+- ✅ Flyway migrations V1–V18 (baseline · event-type seed · custom fields/attendees · organization · event foundation · settings · online access · audit · event-type hierarchy · collaborators · invite expiry · payment capabilities · webhook-payload text · org bank details · auto-complete grace · slug redirects · archived · access grants). Full list in [DATABASE.md](./DATABASE.md).
 - ✅ Global RFC-7807 error handling (`common/error`), Jakarta Bean Validation, security config.
 - ✅ OpenAPI/Swagger (`OpenApiConfig`). Actuator health.
 - ✅ Validation isolated in per-module `*Validator` services. See memory `validator-architecture`.
@@ -119,9 +120,8 @@ Test coverage: 68 tests (unit + Testcontainers-Postgres integration), all green.
 ---
 
 ## Notable gaps / next candidates
-1. 🟡 **Raiffeisen go-live** — confirm NestPay field set / hash version / result codes against the merchant integration doc + provision test-env store key, then verify redirect + callback end-to-end (task open).
-2. 🟡 **Stripe live verification** — gateway built + config-gated; verify end-to-end with Stripe test-mode keys (Checkout redirect + real webhooks).
-3. ⏳ **Event Phase 4** — slug redirects, automated completion, schedule-change notifications, private-event invitations, archival.
-4. ⏳ Publish-time enforcement of contact/location (currently advisory in readiness; pending contact-editing DTOs). Exact §19.1 category catalog is a reference-data follow-up.
-5. ⏳ PIB check-digit validation (needs real known-good PIBs first — see `organization-domain-model`).
-6. ⏳ Still deferred by design: coupons/discounts, tax/VAT, multi-day/season passes, seat selection, ticket transfer/resale, organizer payouts (Stripe Connect). Schema hooks exist for most (see `SCOPE.md`).
+1. 🟡 **Raiffeisen (UPC) go-live** — gateway implemented against the UPC e-Commerce Connect Gateway spec (RSA-SHA1 `UpcSignature`, ordered datafiles) + config-gated + unit-tested; needs merchant test-env credentials (MerchantID + keys) to verify redirect + NOTIFY callback end-to-end (task #11 open).
+2. 🟡 **Stripe live verification** — gateway built + config-gated; verify end-to-end with Stripe test-mode keys (Checkout redirect + real webhooks) (task #12 open).
+3. ⏳ Publish-time enforcement of contact/location (currently advisory in readiness; pending contact-editing DTOs). Exact §19.1 category catalog is a reference-data follow-up.
+4. ⏳ PIB check-digit validation (needs real known-good PIBs first — see `organization-domain-model`).
+5. ⏳ Still deferred by design: coupons/discounts, tax/VAT, multi-day/season passes, seat selection, ticket transfer/resale, organizer payouts (Stripe Connect). Schema hooks exist for most (see `SCOPE.md`).
