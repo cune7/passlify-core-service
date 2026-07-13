@@ -46,8 +46,9 @@ public class PublicEventController {
     }
 
     @GetMapping("/{slug}")
-    public ResponseEntity<PublicEventDetail> detail(@PathVariable String slug) {
-        Optional<Event> current = catalog.findPublishedBySlug(slug);
+    public ResponseEntity<PublicEventDetail> detail(@PathVariable String slug,
+                                                    @RequestParam(required = false) String access) {
+        Optional<Event> current = catalog.findAccessibleBySlug(slug, access);
         if (current.isPresent()) {
             Event event = current.get();
             return ResponseEntity.ok(PublicEventDetail.from(

@@ -24,9 +24,9 @@ custom attendee-form fields, an organizer dashboard, and an organization/company
 - **Phase 3 — Commercial control 🟡 in progress.** Payment capabilities (§10) ✅ done;
   Raiffeisen gateway 🟡 config-gated + unit-tested but unverified against the bank; real Stripe
   SDK ⏳ pending. Migration V12.
-- **Phase 4 — Advanced lifecycle 🟡 in progress.** ✅ automated completion (scheduled sweep,
-  per-event admin grace override); ✅ slug redirects; ✅ schedule-change notifications;
-  ✅ event archival. Remaining: private-event invitations.
+- **Phase 4 — Advanced lifecycle ✅ complete.** Automated completion (scheduled sweep,
+  per-event admin grace override); slug redirects; schedule-change notifications; event
+  archival; private-event access grants.
 
 Test coverage: 68 tests (unit + Testcontainers-Postgres integration), all green.
 
@@ -58,7 +58,8 @@ Test coverage: 68 tests (unit + Testcontainers-Postgres integration), all green.
 - ✅ Immutable audit trail (`EventAuditEntry`, JSON diff) + `GET /{id}/audit`; domain events published for cross-module reactions.
 - ✅ Schedule-change notifications (§16.3): editing a **published** event's date or venue emits `EventDomainEvent.ScheduleChanged` (+ `SCHEDULE_CHANGED` audit); a `@TransactionalEventListener` emails all ticket holders (best-effort). DRAFT edits don't notify.
 - ✅ Paid events gated on a complete `COMPANY` organization (see `organization-domain-model`).
-- ✅ Public read API: `GET /api/v1/public/events` (PUBLIC, non-archived; upcoming by default, `?includePast=true` to search COMPLETED history) + `GET /api/v1/public/events/{slug}` (PUBLIC + UNLISTED, PUBLISHED or COMPLETED, non-archived; PRIVATE/archived 404). Archived events never appear publicly.
+- ✅ Public read API: `GET /api/v1/public/events` (PUBLIC, non-archived; upcoming by default, `?includePast=true` to search COMPLETED history) + `GET /api/v1/public/events/{slug}` (PUBLIC + UNLISTED, PUBLISHED or COMPLETED, non-archived; a **PRIVATE** event resolves only with a valid `?access=<token>`; archived 404). Archived events never appear publicly.
+- ✅ Private-event access grants (§8): `POST/GET/DELETE /api/v1/events/{id}/access-grants` (owner/manager/admin) mint/list/revoke shareable bearer tokens (`EventAccessGrant`, V18); a valid token lets an invitee view (`?access=`) and **buy** (`POST /orders?access=`) a PRIVATE event. Revocable.
 - ✅ `EventType` hierarchy (§19): non-selectable category parents + selectable leaves (`code`/`parent`/`active`/`sortOrder`); create enforces a selectable leaf; `GET /api/v1/public/event-types` catalog. Migration V9.
 - ✅ Collaborators (§13): `EventCollaborator` (event-scoped roles OWNER/MANAGER/EDITOR/VIEWER/CHECK_IN_OPERATOR); creator stored as ACCEPTED OWNER; invite by email → accept links Keycloak sub; `GET/POST/PATCH/DELETE /events/{id}/collaborators` + `/accept`; audited + email notification. Migration V10.
 - ✅ Ownership transfer (§13.4): `POST /events/{id}/transfer-ownership` (owner/admin, explicit confirm) → target becomes OWNER, previous owner becomes MANAGER, `organizerId` moves; audited. (Org reassignment for paid events deferred.)

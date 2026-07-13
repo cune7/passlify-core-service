@@ -573,6 +573,41 @@
           }
         },
         {
+          "name": "Create access grant (PRIVATE event)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.collectionVariables.set('accessToken', pm.response.json().token);"]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"label\": \"VIP list\"\n}" },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/events/{{eventId}}/access-grants",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "events", "{{eventId}}", "access-grants"]
+            },
+            "description": "Owner/manager/admin. Saves token → accessToken. Share as ?access=<token> on the public detail/checkout of a PRIVATE event."
+          }
+        },
+        {
+          "name": "List access grants",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/events/{{eventId}}/access-grants",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "events", "{{eventId}}", "access-grants"]
+            }
+          }
+        },
+        {
           "name": "Transfer ownership",
           "request": {
             "method": "POST",

@@ -4,6 +4,8 @@ import com.passlify.core.common.error.ApiException;
 import com.passlify.core.common.error.ErrorCode;
 import com.passlify.core.common.security.CurrentUser;
 import com.passlify.core.event.Event;
+import com.passlify.core.event.EventAccessService;
+import com.passlify.core.event.Visibility;
 import com.passlify.core.payment.PaymentProvider;
 import com.passlify.core.forms.CustomField;
 import com.passlify.core.forms.CustomFieldRepository;
@@ -41,6 +43,7 @@ public class CheckoutService {
 
     /** MANUAL (bank-transfer) orders hold inventory far longer — the transfer takes days. */
     private final Duration manualHold;
+    private final EventAccessService accessService;
 
     private final OrderRepository orders;
     private final TicketTypeRepository ticketTypes;
@@ -59,9 +62,11 @@ public class CheckoutService {
                            TicketIssuanceService ticketIssuanceService,
                            CheckoutValidator validator,
                            ObjectMapper objectMapper,
+                           EventAccessService accessService,
                            @org.springframework.beans.factory.annotation.Value(
                                    "${passlify.manual-payment-hold-hours:72}") long manualHoldHours) {
         this.manualHold = Duration.ofHours(manualHoldHours);
+        this.accessService = accessService;
         this.orders = orders;
         this.ticketTypes = ticketTypes;
         this.customFields = customFields;
@@ -74,6 +79,12 @@ public class CheckoutService {
 
     @Transactional
     public Order createOrder(CreateOrderRequest req) {
+        return createOrder(req, null);
+    }
+
+    /** {@code accessToken} is required only for PRIVATE events (§8); ignored otherwise. */
+    @Transactional
+    public Order createOrder(CreateOrderRequest req, String accessToken) {
         List<CreateOrderRequest.Line> lines = req.items();
         validator.rejectDuplicateTicketTypes(lines);
 
@@ -135,6 +146,13 @@ public class CheckoutService {
                 customFields.findByEventIdAndScopeOrderBySortOrderAscCreatedAtAsc(eventId, FieldScope.PER_ATTENDEE);
         for (PendingAttendee pending : pendingAttendees) {
             pending.cleanedFields = validator.cleanAndValidate(attendeeDefs, pending.input.fields(), "attendee");
+        }
+
+        // A PRIVATE event can only be bought with a valid access grant (§8).
+        if (event.getVisibility() == Visibility.PRIVATE
+                && !accessService.hasValidAccess(event.getId(), accessToken)) {
+            throw ApiException.of(com.passlify.core.common.error.ErrorCode.FORBIDDEN,
+                    "This event is private; a valid access token is required to buy");
         }
 
         boolean free = subtotal == 0;

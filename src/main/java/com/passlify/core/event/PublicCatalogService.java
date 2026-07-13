@@ -22,12 +22,15 @@ public class PublicCatalogService {
     private final EventRepository events;
     private final TicketTypeRepository ticketTypes;
     private final EventSlugRedirectRepository slugRedirects;
+    private final EventAccessService accessService;
 
     public PublicCatalogService(EventRepository events, TicketTypeRepository ticketTypes,
-                                EventSlugRedirectRepository slugRedirects) {
+                                EventSlugRedirectRepository slugRedirects,
+                                EventAccessService accessService) {
         this.events = events;
         this.ticketTypes = ticketTypes;
         this.slugRedirects = slugRedirects;
+        this.accessService = accessService;
     }
 
     /** History-inclusive statuses reachable publicly by slug (never archived). */
@@ -59,6 +62,18 @@ public class PublicCatalogService {
     @Transactional(readOnly = true)
     public java.util.Optional<Event> findPublishedBySlug(String slug) {
         return events.findBySlugAndArchivedFalseAndStatusInAndVisibilityIn(slug, PUBLIC_STATUSES, LINKABLE);
+    }
+
+    /**
+     * Resolve a slug for public detail: PUBLIC/UNLISTED are open; a PRIVATE event
+     * resolves only with a valid access token (§8). Empty otherwise.
+     */
+    @Transactional(readOnly = true)
+    public java.util.Optional<Event> findAccessibleBySlug(String slug, String accessToken) {
+        return events.findBySlugAndArchivedFalseAndStatusIn(slug, PUBLIC_STATUSES)
+                .filter(e -> LINKABLE.contains(e.getVisibility())
+                        || (e.getVisibility() == Visibility.PRIVATE
+                                && accessService.hasValidAccess(e.getId(), accessToken)));
     }
 
     /**

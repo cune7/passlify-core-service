@@ -31,6 +31,9 @@ public interface EventRepository extends JpaRepository<Event, UUID>, JpaSpecific
     Optional<Event> findBySlugAndArchivedFalseAndStatusInAndVisibilityIn(
             String slug, Collection<EventStatus> statuses, Collection<Visibility> visibilities);
 
+    /** Any-visibility slug lookup (non-archived, published/completed) — for PRIVATE access via token. */
+    Optional<Event> findBySlugAndArchivedFalseAndStatusIn(String slug, Collection<EventStatus> statuses);
+
     boolean existsBySlug(String slug);
 
     /** Published events whose end time has passed — candidates for auto-completion. */

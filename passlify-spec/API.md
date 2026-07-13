@@ -291,6 +291,12 @@ non-participants get `404`, insufficient role `403`.
 - `POST /api/v1/events/{id}/archive` · `/unarchive` — owner/manager/admin: retire/restore an event. `GET /api/v1/events` hides archived by default; `?includeArchived=true` includes them (reporting/history).
 - `GET  /api/v1/public/events?includePast=true` — buyers can also search COMPLETED (past) public events; archived events are never public.
 
+**Private-event access grants (§8)**
+- `POST/GET /api/v1/events/{id}/access-grants` — owner/manager/admin: mint / list shareable tokens
+- `DELETE /api/v1/events/{id}/access-grants/{grantId}` — revoke a token
+- `GET /api/v1/public/events/{slug}?access=<token>` — view a PRIVATE event with a valid token (else 404)
+- `POST /api/v1/orders?access=<token>` — buy into a PRIVATE event (required for PRIVATE; ignored otherwise)
+
 **Collaborators (§13)**
 - `GET/POST /api/v1/events/{id}/collaborators` — list / invite (by email + role)
 - `PATCH/DELETE /api/v1/events/{id}/collaborators/{collaboratorId}` — re-role / remove

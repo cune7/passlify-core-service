@@ -23,6 +23,7 @@ project at `src/main/resources/db/migration/` and Flyway applies them on startup
 | `V15__event_auto_complete_grace.sql` | `event.auto_complete_grace_hours` (per-event auto-completion override) |
 | `V16__event_slug_redirect.sql` | `event_slug_redirect` (retired slug → event, for 301s) |
 | `V17__event_archived.sql` | `event.archived` flag (hide from default listings) |
+| `V18__event_access_grant.sql` | `event_access_grant` (shareable tokens for PRIVATE events) |
 
 ## Design choices (so they match the JPA entities)
 - **snake_case columns.** Spring Boot's default `CamelCaseToUnderscoresNamingStrategy` maps entity
@@ -91,5 +92,6 @@ These back up the application logic (defense in depth — DON'T rely on them alo
 | `EventAuditEntry` | `event_audit_entries` |
 | `EventCollaborator` | `event_collaborators` |
 | `EventSlugRedirect` | `event_slug_redirect` |
+| `EventAccessGrant` | `event_access_grant` |
 
 > The full, always-current feature/endpoint index lives in [FEATURES.md](./FEATURES.md).
