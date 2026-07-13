@@ -166,6 +166,7 @@ public class EventService {
                     "Event was modified by someone else; reload and retry");
         }
         Map<String, Object> before = snapshot(e);
+        UUID oldLocationId = e.getLocation() == null ? null : e.getLocation().getId();
 
         Instant newStart = req.startsAt() != null ? req.startsAt() : e.getStartsAt();
         Instant newEnd = req.endsAt() != null ? req.endsAt() : e.getEndsAt();
@@ -221,6 +222,17 @@ public class EventService {
         Map<String, Object> changed = diff(before, snapshot(e));
         if (!changed.isEmpty()) {
             audit.record(e, EventAuditAction.EVENT_UPDATED, changed, null);
+        }
+
+        // Notify ticket holders when a LIVE event's schedule or venue moves (§16.3).
+        boolean rescheduled = changed.containsKey("startsAt") || changed.containsKey("endsAt");
+        UUID newLocationId = e.getLocation() == null ? null : e.getLocation().getId();
+        boolean venueChanged = !java.util.Objects.equals(oldLocationId, newLocationId);
+        if (e.getStatus() == EventStatus.PUBLISHED && (rescheduled || venueChanged)) {
+            String summary = scheduleChangeSummary(rescheduled, venueChanged, e);
+            audit.record(e, EventAuditAction.SCHEDULE_CHANGED, null, summary);
+            domainEvents.publishEvent(new EventDomainEvent.ScheduleChanged(
+                    e.getId(), e.getPublicId(), e.getName(), summary));
         }
         return e;
     }
@@ -348,6 +360,17 @@ public class EventService {
 
     private static Object stringOrNull(Object v) {
         return v == null ? null : v.toString();
+    }
+
+    private static String scheduleChangeSummary(boolean rescheduled, boolean venueChanged, Event e) {
+        java.util.List<String> parts = new java.util.ArrayList<>();
+        if (rescheduled) {
+            parts.add("a new schedule (" + e.getStartsAt() + " – " + e.getEndsAt() + ", " + e.getTimezone() + ")");
+        }
+        if (venueChanged) {
+            parts.add("a new location");
+        }
+        return "This event now has " + String.join(" and ", parts) + ". Please review the latest details.";
     }
 
     private String normalizeCurrency(String currency) {

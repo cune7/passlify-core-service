@@ -24,4 +24,8 @@ public final class EventDomainEvent {
 
     public record Completed(UUID eventId, String publicId) {
     }
+
+    /** A published event's schedule and/or venue changed — notify ticket holders (§16.3). */
+    public record ScheduleChanged(UUID eventId, String publicId, String eventName, String summary) {
+    }
 }

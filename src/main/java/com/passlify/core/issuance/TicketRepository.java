@@ -36,6 +36,11 @@ public interface TicketRepository extends JpaRepository<Ticket, UUID> {
     @Query("select t from Ticket t where t.id = :id")
     Optional<Ticket> findByIdForUpdate(@Param("id") UUID id);
 
+    /** Distinct holder emails (owner, else the buyer) of non-void tickets — for event notices. */
+    @Query("select distinct coalesce(t.ownerEmail, t.order.customerEmail) from Ticket t "
+            + "where t.event.id = :eventId and t.status <> com.passlify.core.issuance.TicketStatus.VOID")
+    List<String> findHolderEmailsByEventId(@Param("eventId") UUID eventId);
+
     long countByEventId(UUID eventId);
 
     long countByEventIdAndStatus(UUID eventId, com.passlify.core.issuance.TicketStatus status);

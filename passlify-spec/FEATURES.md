@@ -25,8 +25,8 @@ custom attendee-form fields, an organizer dashboard, and an organization/company
   Raiffeisen gateway 🟡 config-gated + unit-tested but unverified against the bank; real Stripe
   SDK ⏳ pending. Migration V12.
 - **Phase 4 — Advanced lifecycle 🟡 in progress.** ✅ automated completion (scheduled sweep,
-  per-event admin grace override); ✅ slug redirects. Remaining: attendee schedule-change
-  notifications, private-event invitations, event archival.
+  per-event admin grace override); ✅ slug redirects; ✅ schedule-change notifications.
+  Remaining: private-event invitations, event archival.
 
 Test coverage: 68 tests (unit + Testcontainers-Postgres integration), all green.
 
@@ -55,6 +55,7 @@ Test coverage: 68 tests (unit + Testcontainers-Postgres integration), all green.
 - ✅ `GET/PUT /{id}/settings` — age, entry, country restriction (hard-reject when empty), rules (§20).
 - ✅ `GET/PUT /{id}/online-access` — join URL/instructions for ONLINE/HYBRID (§14.5).
 - ✅ Immutable audit trail (`EventAuditEntry`, JSON diff) + `GET /{id}/audit`; domain events published for cross-module reactions.
+- ✅ Schedule-change notifications (§16.3): editing a **published** event's date or venue emits `EventDomainEvent.ScheduleChanged` (+ `SCHEDULE_CHANGED` audit); a `@TransactionalEventListener` emails all ticket holders (best-effort). DRAFT edits don't notify.
 - ✅ Paid events gated on a complete `COMPANY` organization (see `organization-domain-model`).
 - ✅ Public read API: `GET /api/v1/public/events` (list, PUBLIC only) + `GET /api/v1/public/events/{slug}` (PUBLIC + UNLISTED; PRIVATE 404s).
 - ✅ `EventType` hierarchy (§19): non-selectable category parents + selectable leaves (`code`/`parent`/`active`/`sortOrder`); create enforces a selectable leaf; `GET /api/v1/public/event-types` catalog. Migration V9.

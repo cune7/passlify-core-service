@@ -98,6 +98,30 @@ public class EmailService {
         }
     }
 
+    /**
+     * Notifies a ticket holder that an event's schedule/venue changed. Best-effort — a
+     * mail failure must not break the organizer's edit.
+     */
+    public void sendScheduleChange(String toEmail, String eventName, String summary) {
+        if (!enabled) {
+            log.debug("Mail disabled; skipping schedule-change notice to {}", toEmail);
+            return;
+        }
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, false, "UTF-8");
+            helper.setFrom(from);
+            helper.setTo(toEmail);
+            helper.setSubject("Update to your event — " + eventName);
+            helper.setText(summary + "\n\nYour ticket remains valid. See the event page for details:\n"
+                    + baseUrl + "\n");
+            mailSender.send(message);
+            log.info("Sent schedule-change notice to {} for \"{}\"", toEmail, eventName);
+        } catch (MailException | jakarta.mail.MessagingException e) {
+            log.warn("Failed to send schedule-change notice to {} ({})", toEmail, e.getMessage());
+        }
+    }
+
     private String body(Order order, List<Ticket> tickets, String eventName) {
         StringBuilder sb = new StringBuilder();
         sb.append("Hi").append(order.getCustomerName() != null ? " " + order.getCustomerName() : "").append(",\n\n");
