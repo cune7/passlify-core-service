@@ -1,7 +1,7 @@
 # Passlify Core — Feature List
 
 > Current state of the service, module by module. Updated through EVENT_DOMAIN_SPEC
-> Phases 1–4 (migrations V1–V18). Legend:
+> Phases 1–4 (migrations V1–V19). Legend:
 > ✅ implemented & wired · 🟡 implemented but stubbed/unverified · ⏳ modelled, not built.
 
 The MVP spine is complete end-to-end: **organizer creates event + ticket types →
@@ -30,7 +30,7 @@ custom attendee-form fields, an organizer dashboard, and an organization/company
   per-event admin grace override); slug redirects; schedule-change notifications; event
   archival; private-event access grants. Migrations V15–V18.
 
-Test coverage: 100 tests (unit + Testcontainers-Postgres integration), all green.
+Test coverage: 103 tests (unit + Testcontainers-Postgres integration), all green.
 
 ---
 
@@ -113,7 +113,7 @@ Test coverage: 100 tests (unit + Testcontainers-Postgres integration), all green
   *(Reporting was "deferred" in scope — a basic organizer dashboard now exists.)*
 
 ## Cross-cutting  `com.passlify.core.common`, `config`
-- ✅ Flyway migrations V1–V18 (baseline · event-type seed · custom fields/attendees · organization · event foundation · settings · online access · audit · event-type hierarchy · collaborators · invite expiry · payment capabilities · webhook-payload text · org bank details · auto-complete grace · slug redirects · archived · access grants). Full list in [DATABASE.md](./DATABASE.md).
+- ✅ Flyway migrations V1–V19 (baseline · event-type seed · custom fields/attendees · organization · event foundation · settings · online access · audit · event-type hierarchy · collaborators · invite expiry · payment capabilities · webhook-payload text · org bank details · auto-complete grace · slug redirects · archived · access grants · §19.1 event-type catalog). Full list in [DATABASE.md](./DATABASE.md).
 - ✅ Global RFC-7807 error handling (`common/error`), Jakarta Bean Validation, security config.
 - ✅ OpenAPI/Swagger (`OpenApiConfig`). Actuator health.
 - ✅ Validation isolated in per-module `*Validator` services. See memory `validator-architecture`.
@@ -123,6 +123,5 @@ Test coverage: 100 tests (unit + Testcontainers-Postgres integration), all green
 ## Notable gaps / next candidates
 1. 🟡 **Raiffeisen (UPC) go-live** — gateway implemented against the UPC e-Commerce Connect Gateway spec (RSA-SHA1 `UpcSignature`, ordered datafiles) + config-gated + unit-tested; needs merchant test-env credentials (MerchantID + keys) to verify redirect + NOTIFY callback end-to-end (task #11 open).
 2. 🟡 **Stripe live verification** — gateway built + config-gated; verify end-to-end with Stripe test-mode keys (Checkout redirect + real webhooks) (task #12 open).
-3. ⏳ Exact §19.1 event-category catalog is a reference-data follow-up (the `event_type` hierarchy plumbing exists; the real category rows are not yet seeded).
-4. ⏳ PIB check-digit validation (needs real known-good PIBs first — see `organization-domain-model`).
-5. ⏳ Still deferred by design: coupons/discounts, tax/VAT, multi-day/season passes, seat selection, ticket transfer/resale, organizer payouts (Stripe Connect). Schema hooks exist for most (see `SCOPE.md`).
+3. ⏳ PIB check-digit validation (needs real known-good PIBs first — see `organization-domain-model`).
+4. ⏳ Still deferred by design: coupons/discounts, tax/VAT, multi-day/season passes, seat selection, ticket transfer/resale, organizer payouts (Stripe Connect). Schema hooks exist for most (see `SCOPE.md`).

@@ -31,11 +31,13 @@ class SchemaMigrationIntegrationTest extends AbstractIntegrationTest {
 
     @Test
     void migrationsApplyAndSeedDataLoads() {
-        // V2 seeds 15 leaf types; V9 adds a non-selectable category parent per distinct
-        // category (9), so 24 rows total — 15 of them selectable leaves.
-        assertThat(eventTypes.count()).isEqualTo(24);
-        assertThat(eventTypes.findByActiveTrueOrderBySortOrderAscNameAsc().stream()
-                .filter(EventType::isSelectable).count()).isEqualTo(15);
+        // V19 seeds the §19.1 catalog: 6 categories + 20 leaves (= 26 active rows). The
+        // provisional V2/V9 rows are deactivated, not deleted (§19.2), so they linger in
+        // the table — 45 rows total — but only the 20 §19.1 leaves are active & selectable.
+        List<EventType> active = eventTypes.findByActiveTrueOrderBySortOrderAscNameAsc();
+        assertThat(active).hasSize(26);
+        assertThat(active.stream().filter(EventType::isSelectable).count()).isEqualTo(20);
+        assertThat(eventTypes.count()).isEqualTo(45);
     }
 
     @Test

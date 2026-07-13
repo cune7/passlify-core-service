@@ -24,6 +24,7 @@ project at `src/main/resources/db/migration/` and Flyway applies them on startup
 | `V16__event_slug_redirect.sql` | `event_slug_redirect` (retired slug → event, for 301s) |
 | `V17__event_archived.sql` | `event.archived` flag (hide from default listings) |
 | `V18__event_access_grant.sql` | `event_access_grant` (shareable tokens for PRIVATE events) |
+| `V19__seed_event_type_catalog.sql` | Seeds the real §19.1 event-type catalog (6 categories + 20 leaves); deactivates the provisional V2/V9 types |
 
 ## Design choices (so they match the JPA entities)
 - **snake_case columns.** Spring Boot's default `CamelCaseToUnderscoresNamingStrategy` maps entity
