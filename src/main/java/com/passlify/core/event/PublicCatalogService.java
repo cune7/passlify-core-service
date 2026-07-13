@@ -30,12 +30,16 @@ public class PublicCatalogService {
         this.slugRedirects = slugRedirects;
     }
 
+    /** History-inclusive statuses reachable publicly by slug (never archived). */
+    private static final java.util.List<EventStatus> PUBLIC_STATUSES =
+            java.util.List.of(EventStatus.PUBLISHED, EventStatus.COMPLETED);
+
     @Transactional(readOnly = true)
     public Page<Event> search(String q, String city, java.util.UUID eventTypeId,
-                              Instant from, Instant to, Pageable pageable) {
+                              Instant from, Instant to, boolean includePast, Pageable pageable) {
         // Drop null fragments (optional filters that were not supplied); allOf rejects nulls.
         List<Specification<Event>> fragments = java.util.stream.Stream.of(
-                        PublicEventSpecifications.publishedAndPublic(),
+                        PublicEventSpecifications.publiclyListable(includePast),
                         PublicEventSpecifications.nameContains(q),
                         PublicEventSpecifications.inCity(city),
                         PublicEventSpecifications.ofEventType(eventTypeId),
@@ -54,7 +58,7 @@ public class PublicCatalogService {
 
     @Transactional(readOnly = true)
     public java.util.Optional<Event> findPublishedBySlug(String slug) {
-        return events.findBySlugAndStatusAndVisibilityIn(slug, EventStatus.PUBLISHED, LINKABLE);
+        return events.findBySlugAndArchivedFalseAndStatusInAndVisibilityIn(slug, PUBLIC_STATUSES, LINKABLE);
     }
 
     /**
@@ -65,7 +69,8 @@ public class PublicCatalogService {
     public java.util.Optional<String> findRedirectTargetSlug(String oldSlug) {
         return slugRedirects.findByOldSlug(oldSlug)
                 .flatMap(r -> events.findById(r.getEventId()))
-                .filter(e -> e.getStatus() == EventStatus.PUBLISHED && LINKABLE.contains(e.getVisibility()))
+                .filter(e -> !e.isArchived() && PUBLIC_STATUSES.contains(e.getStatus())
+                        && LINKABLE.contains(e.getVisibility()))
                 .map(Event::getSlug);
     }
 

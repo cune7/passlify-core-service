@@ -40,8 +40,9 @@ public class PublicEventController {
             @RequestParam(required = false) UUID eventType,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to,
+            @RequestParam(defaultValue = "false") boolean includePast,
             @PageableDefault(size = 20) Pageable pageable) {
-        return catalog.search(q, city, eventType, from, to, pageable).map(PublicEventSummary::from);
+        return catalog.search(q, city, eventType, from, to, includePast, pageable).map(PublicEventSummary::from);
     }
 
     @GetMapping("/{slug}")

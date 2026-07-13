@@ -12,15 +12,24 @@ public interface EventRepository extends JpaRepository<Event, UUID>, JpaSpecific
 
     Optional<Event> findByIdAndOrganizerId(UUID id, String organizerId);
 
+    // Organizer board — includeArchived=true uses the plain finders (all), false uses ArchivedFalse.
     Page<Event> findByOrganizerId(String organizerId, Pageable pageable);
 
     Page<Event> findByOrganizerIdAndStatus(String organizerId, EventStatus status, Pageable pageable);
 
+    Page<Event> findByOrganizerIdAndArchivedFalse(String organizerId, Pageable pageable);
+
+    Page<Event> findByOrganizerIdAndStatusAndArchivedFalse(
+            String organizerId, EventStatus status, Pageable pageable);
+
     Optional<Event> findBySlugAndStatusAndVisibility(String slug, EventStatus status, Visibility visibility);
 
-    /** Direct-link resolution: PUBLIC and UNLISTED are reachable by slug; PRIVATE is not (§25.3). */
-    Optional<Event> findBySlugAndStatusAndVisibilityIn(
-            String slug, EventStatus status, Collection<Visibility> visibilities);
+    /**
+     * Direct-link resolution: a non-archived event reachable by slug — PUBLIC/UNLISTED,
+     * PUBLISHED (upcoming) or COMPLETED (history). PRIVATE/archived are not (§25.3).
+     */
+    Optional<Event> findBySlugAndArchivedFalseAndStatusInAndVisibilityIn(
+            String slug, Collection<EventStatus> statuses, Collection<Visibility> visibilities);
 
     boolean existsBySlug(String slug);
 

@@ -51,8 +51,9 @@ public class EventController {
 
     @GetMapping
     public Page<EventSummary> list(@RequestParam(required = false) EventStatus status,
+                                   @RequestParam(defaultValue = "false") boolean includeArchived,
                                    @PageableDefault(size = 20) Pageable pageable) {
-        return eventService.listOwned(status, pageable).map(EventSummary::from);
+        return eventService.listOwned(status, includeArchived, pageable).map(EventSummary::from);
     }
 
     @PatchMapping("/{id}")
@@ -78,6 +79,16 @@ public class EventController {
     @PostMapping("/{id}/complete")
     public EventResponse complete(@PathVariable UUID id) {
         return EventResponse.from(eventService.complete(id));
+    }
+
+    @PostMapping("/{id}/archive")
+    public EventResponse archive(@PathVariable UUID id) {
+        return EventResponse.from(eventService.archive(id));
+    }
+
+    @PostMapping("/{id}/unarchive")
+    public EventResponse unarchive(@PathVariable UUID id) {
+        return EventResponse.from(eventService.unarchive(id));
     }
 
     @GetMapping("/{id}/audit")

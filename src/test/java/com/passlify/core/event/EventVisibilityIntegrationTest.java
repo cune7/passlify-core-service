@@ -51,7 +51,7 @@ class EventVisibilityIntegrationTest extends AbstractIntegrationTest {
                 .isInstanceOf(ApiException.class);
 
         // Listing shows only PUBLIC.
-        List<Event> listed = catalog.search(null, null, null, null, null, PageRequest.of(0, 50)).getContent();
+        List<Event> listed = catalog.search(null, null, null, null, null, false, PageRequest.of(0, 50)).getContent();
         assertThat(listed).extracting(Event::getId).contains(pub.getId())
                 .doesNotContain(unlisted.getId(), priv.getId());
     }

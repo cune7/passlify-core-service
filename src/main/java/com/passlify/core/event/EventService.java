@@ -144,11 +144,38 @@ public class EventService {
     }
 
     @Transactional(readOnly = true)
-    public Page<Event> listOwned(EventStatus status, Pageable pageable) {
+    public Page<Event> listOwned(EventStatus status, boolean includeArchived, Pageable pageable) {
         String organizer = currentUser.requireSubject();
+        if (includeArchived) {
+            return status == null
+                    ? events.findByOrganizerId(organizer, pageable)
+                    : events.findByOrganizerIdAndStatus(organizer, status, pageable);
+        }
         return status == null
-                ? events.findByOrganizerId(organizer, pageable)
-                : events.findByOrganizerIdAndStatus(organizer, status, pageable);
+                ? events.findByOrganizerIdAndArchivedFalse(organizer, pageable)
+                : events.findByOrganizerIdAndStatusAndArchivedFalse(organizer, status, pageable);
+    }
+
+    /** Retire an event from the default listings (keeps all data); idempotent. */
+    @Transactional
+    public Event archive(UUID id) {
+        Event e = load(id, EventCapability.MANAGE_LIFECYCLE);
+        if (!e.isArchived()) {
+            e.setArchived(true);
+            audit.record(e, EventAuditAction.EVENT_ARCHIVED, null, null);
+        }
+        return e;
+    }
+
+    /** Restore an archived event to the default listings; idempotent. */
+    @Transactional
+    public Event unarchive(UUID id) {
+        Event e = load(id, EventCapability.MANAGE_LIFECYCLE);
+        if (e.isArchived()) {
+            e.setArchived(false);
+            audit.record(e, EventAuditAction.EVENT_UNARCHIVED, null, null);
+        }
+        return e;
     }
 
     @Transactional

@@ -115,6 +115,10 @@ public class Event extends BaseEntity {
     @Column(name = "auto_complete_grace_hours")
     private Integer autoCompleteGraceHours;
 
+    /** Retired from the default listings (organizer board / public catalog) without deleting the data. */
+    @Column(nullable = false)
+    private boolean archived = false;
+
     @JdbcTypeCode(SqlTypes.ARRAY)
     @Column(name = "tags", columnDefinition = "text[]")
     private List<String> tags;

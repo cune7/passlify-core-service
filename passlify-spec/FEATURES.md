@@ -25,8 +25,8 @@ custom attendee-form fields, an organizer dashboard, and an organization/company
   Raiffeisen gateway 🟡 config-gated + unit-tested but unverified against the bank; real Stripe
   SDK ⏳ pending. Migration V12.
 - **Phase 4 — Advanced lifecycle 🟡 in progress.** ✅ automated completion (scheduled sweep,
-  per-event admin grace override); ✅ slug redirects; ✅ schedule-change notifications.
-  Remaining: private-event invitations, event archival.
+  per-event admin grace override); ✅ slug redirects; ✅ schedule-change notifications;
+  ✅ event archival. Remaining: private-event invitations.
 
 Test coverage: 68 tests (unit + Testcontainers-Postgres integration), all green.
 
@@ -45,7 +45,8 @@ Test coverage: 68 tests (unit + Testcontainers-Postgres integration), all green.
 - Company/billing data is in Postgres, not Keycloak. See memory `organization-domain-model`.
 
 ## Events  `com.passlify.core.event`  *(EVENT_DOMAIN_SPEC Phases 1–2 built)*
-- ✅ CRUD (organizer-scoped): `POST /api/v1/events`, `GET /{id}`, `GET` (list), `PATCH /{id}` (optimistic `version` → 409 on stale edit).
+- ✅ CRUD (organizer-scoped): `POST /api/v1/events`, `GET /{id}`, `GET` (list — defaults to non-archived; `?includeArchived=true` for reporting/history), `PATCH /{id}` (optimistic `version` → 409 on stale edit).
+- ✅ Archival: `POST /{id}/archive` + `/unarchive` (owner/manager/admin) — retires an event from the default board without deleting data; audited (`EVENT_ARCHIVED`). Migration V17.
 - ✅ Identity: immutable ULID `publicId` + human `slug` (editable any time; a retired published slug 301s to the current one via `EventSlugRedirect`, V16). Mandatory IANA `timezone`.
 - ✅ Explicit `AttendanceMode` (IN_PERSON/ONLINE/HYBRID) and `CommercialMode` (FREE/PAID); `Visibility` PUBLIC/UNLISTED/PRIVATE.
 - ✅ Sanitized rich-text `descriptionHtml` (+ plain-text projection); embedded event contact/social links.
@@ -57,7 +58,7 @@ Test coverage: 68 tests (unit + Testcontainers-Postgres integration), all green.
 - ✅ Immutable audit trail (`EventAuditEntry`, JSON diff) + `GET /{id}/audit`; domain events published for cross-module reactions.
 - ✅ Schedule-change notifications (§16.3): editing a **published** event's date or venue emits `EventDomainEvent.ScheduleChanged` (+ `SCHEDULE_CHANGED` audit); a `@TransactionalEventListener` emails all ticket holders (best-effort). DRAFT edits don't notify.
 - ✅ Paid events gated on a complete `COMPANY` organization (see `organization-domain-model`).
-- ✅ Public read API: `GET /api/v1/public/events` (list, PUBLIC only) + `GET /api/v1/public/events/{slug}` (PUBLIC + UNLISTED; PRIVATE 404s).
+- ✅ Public read API: `GET /api/v1/public/events` (PUBLIC, non-archived; upcoming by default, `?includePast=true` to search COMPLETED history) + `GET /api/v1/public/events/{slug}` (PUBLIC + UNLISTED, PUBLISHED or COMPLETED, non-archived; PRIVATE/archived 404). Archived events never appear publicly.
 - ✅ `EventType` hierarchy (§19): non-selectable category parents + selectable leaves (`code`/`parent`/`active`/`sortOrder`); create enforces a selectable leaf; `GET /api/v1/public/event-types` catalog. Migration V9.
 - ✅ Collaborators (§13): `EventCollaborator` (event-scoped roles OWNER/MANAGER/EDITOR/VIEWER/CHECK_IN_OPERATOR); creator stored as ACCEPTED OWNER; invite by email → accept links Keycloak sub; `GET/POST/PATCH/DELETE /events/{id}/collaborators` + `/accept`; audited + email notification. Migration V10.
 - ✅ Ownership transfer (§13.4): `POST /events/{id}/transfer-ownership` (owner/admin, explicit confirm) → target becomes OWNER, previous owner becomes MANAGER, `organizerId` moves; audited. (Org reassignment for paid events deferred.)

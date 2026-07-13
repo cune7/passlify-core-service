@@ -366,6 +366,31 @@
           }
         },
         {
+          "name": "Archive event",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/events/{{eventId}}/archive",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "events", "{{eventId}}", "archive"]
+            },
+            "description": "Retire the event from the default board. List with ?includeArchived=true to see archived events."
+          }
+        },
+        {
+          "name": "Unarchive event",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/events/{{eventId}}/unarchive",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "events", "{{eventId}}", "unarchive"]
+            }
+          }
+        },
+        {
           "name": "Cancel event",
           "request": {
             "method": "POST",

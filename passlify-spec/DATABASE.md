@@ -22,6 +22,7 @@ project at `src/main/resources/db/migration/` and Flyway applies them on startup
 | `V14__organization_bank_details.sql` | `organization` bank account fields (MANUAL payments) |
 | `V15__event_auto_complete_grace.sql` | `event.auto_complete_grace_hours` (per-event auto-completion override) |
 | `V16__event_slug_redirect.sql` | `event_slug_redirect` (retired slug → event, for 301s) |
+| `V17__event_archived.sql` | `event.archived` flag (hide from default listings) |
 
 ## Design choices (so they match the JPA entities)
 - **snake_case columns.** Spring Boot's default `CamelCaseToUnderscoresNamingStrategy` maps entity

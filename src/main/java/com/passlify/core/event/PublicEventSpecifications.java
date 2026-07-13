@@ -16,10 +16,20 @@ final class PublicEventSpecifications {
     private PublicEventSpecifications() {
     }
 
-    static Specification<Event> publishedAndPublic() {
-        return (root, query, cb) -> cb.and(
-                cb.equal(root.get("status"), EventStatus.PUBLISHED),
-                cb.equal(root.get("visibility"), Visibility.PUBLIC));
+    /**
+     * Public, non-archived events. By default only PUBLISHED (upcoming/active); with
+     * {@code includePast} also COMPLETED events, so buyers can search past events.
+     */
+    static Specification<Event> publiclyListable(boolean includePast) {
+        return (root, query, cb) -> {
+            var status = includePast
+                    ? root.get("status").in(EventStatus.PUBLISHED, EventStatus.COMPLETED)
+                    : cb.equal(root.get("status"), EventStatus.PUBLISHED);
+            return cb.and(
+                    status,
+                    cb.equal(root.get("visibility"), Visibility.PUBLIC),
+                    cb.isFalse(root.get("archived")));
+        };
     }
 
     static Specification<Event> nameContains(String q) {
