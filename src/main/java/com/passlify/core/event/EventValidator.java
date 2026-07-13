@@ -19,13 +19,16 @@ public class EventValidator {
     private final TicketTypeRepository ticketTypes;
     private final OrganizationValidator organizationValidator;
     private final PaymentCapabilityService paymentCapabilities;
+    private final EventOnlineAccessRepository onlineAccess;
 
     public EventValidator(TicketTypeRepository ticketTypes,
                           OrganizationValidator organizationValidator,
-                          PaymentCapabilityService paymentCapabilities) {
+                          PaymentCapabilityService paymentCapabilities,
+                          EventOnlineAccessRepository onlineAccess) {
         this.ticketTypes = ticketTypes;
         this.organizationValidator = organizationValidator;
         this.paymentCapabilities = paymentCapabilities;
+        this.onlineAccess = onlineAccess;
     }
 
     public void validateDates(Instant startsAt, Instant endsAt) {
@@ -52,6 +55,8 @@ public class EventValidator {
         if (ticketTypes.countByEventIdAndActiveTrue(e.getId()) == 0) {
             throw ApiException.invalidState("Event needs at least one active ticket type to publish");
         }
+        assertContactPresent(e);
+        assertAttendanceConfigured(e);
         // Commercial mode is explicit (§9), not inferred from price. Paid events are
         // B2B: the organizer must have a complete company profile and a real provider.
         if (e.getCommercialMode() == CommercialMode.PAID) {
@@ -67,6 +72,35 @@ public class EventValidator {
                                 + " in " + e.getCurrency());
             }
         }
+    }
+
+    /** §18.2 — a public event must expose at least one contact method (email, phone or website). */
+    private void assertContactPresent(Event e) {
+        if (e.getContact() == null || !e.getContact().hasAnyMethod()) {
+            throw ApiException.invalidState(
+                    "Event needs at least one contact method (email, phone or website) to publish");
+        }
+    }
+
+    /**
+     * §14 — the attendance mode dictates where the event happens: IN_PERSON/HYBRID need a
+     * physical location, ONLINE/HYBRID need configured online access.
+     */
+    private void assertAttendanceConfigured(Event e) {
+        AttendanceMode mode = e.getAttendanceMode();
+        boolean needsLocation = mode == AttendanceMode.IN_PERSON || mode == AttendanceMode.HYBRID;
+        boolean needsOnline = mode == AttendanceMode.ONLINE || mode == AttendanceMode.HYBRID;
+        if (needsLocation && e.getLocation() == null) {
+            throw ApiException.invalidState("A " + mode + " event needs a physical location to publish");
+        }
+        if (needsOnline && !onlineConfigured(e)) {
+            throw ApiException.invalidState(
+                    "A " + mode + " event needs online-access configuration to publish");
+        }
+    }
+
+    private boolean onlineConfigured(Event e) {
+        return onlineAccess.findById(e.getId()).map(EventOnlineAccess::isConfigured).orElse(false);
     }
 
     public void assertCancellable(Event e) {

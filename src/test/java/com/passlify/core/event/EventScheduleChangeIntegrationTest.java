@@ -31,6 +31,7 @@ class EventScheduleChangeIntegrationTest extends AbstractIntegrationTest {
     @Autowired TicketTypeService ticketTypeService;
     @Autowired CheckoutService checkoutService;
     @Autowired TicketRepository tickets;
+    @Autowired EventContactService contactService;
 
     @AfterEach
     void clearAuth() {
@@ -43,6 +44,7 @@ class EventScheduleChangeIntegrationTest extends AbstractIntegrationTest {
         Instant start = Instant.now().plus(30, ChronoUnit.DAYS);
         UUID eventId = eventService.create(freeEvent("Reschedule Fest", start)).getId();
         TicketType tt = ticketTypeService.create(eventId, freeTicket());
+        com.passlify.core.support.EventFixtures.addContact(contactService, eventId);
         eventService.publish(eventId);
 
         // A holder exists (free order issues tickets at checkout).
@@ -79,7 +81,8 @@ class EventScheduleChangeIntegrationTest extends AbstractIntegrationTest {
 
     private CreateEventRequest freeEvent(String name, Instant start) {
         return new CreateEventRequest(name, null, null, start, start.plus(4, ChronoUnit.HOURS),
-                "Europe/Belgrade", null, null, null, null, null, 500, List.of(),
+                "Europe/Belgrade", null, null, null, null,
+                com.passlify.core.support.EventFixtures.TEST_LOCATION, 500, List.of(),
                 "RSD", Visibility.PUBLIC, null);
     }
 

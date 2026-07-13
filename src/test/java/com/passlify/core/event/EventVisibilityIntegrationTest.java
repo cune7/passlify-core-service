@@ -32,6 +32,9 @@ class EventVisibilityIntegrationTest extends AbstractIntegrationTest {
     @Autowired
     PublicCatalogService catalog;
 
+    @Autowired
+    EventContactService contactService;
+
     @AfterEach
     void clearAuth() {
         SecurityContextHolder.clearContext();
@@ -60,10 +63,12 @@ class EventVisibilityIntegrationTest extends AbstractIntegrationTest {
         Instant start = Instant.now().plus(30, ChronoUnit.DAYS);
         Event e = eventService.create(new CreateEventRequest(
                 "Vis " + visibility, null, null, start, start.plus(4, ChronoUnit.HOURS),
-                "Europe/Belgrade", null, null, null, null, null, 500, List.of(),
+                "Europe/Belgrade", null, null, null, null,
+                com.passlify.core.support.EventFixtures.TEST_LOCATION, 500, List.of(),
                 "RSD", visibility, null));
         ticketTypeService.create(e.getId(), new CreateTicketTypeRequest(
                 "Free", null, 0L, null, 100, null, null, null, null, null, null, null, null));
+        com.passlify.core.support.EventFixtures.addContact(contactService, e.getId());
         return eventService.publish(e.getId());
     }
 

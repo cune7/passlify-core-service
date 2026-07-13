@@ -59,7 +59,10 @@ Response `200`: `EventResponse`.
 Partial body of the create fields. `slug` is editable; renaming a published event records a redirect so old links keep working (see §3). Response `200`.
 
 ### `POST /api/v1/events/{id}/publish` — publish · `ORGANIZER`
-Guards (DOMAIN §2.3): ≥1 active ticket type, `startsAt` in future. Response `200` or `409` if guards fail.
+Guards (DOMAIN §2.3, EVENT_DOMAIN_SPEC §14/§18.2): ≥1 active ticket type, `startsAt` in future,
+at least one contact method (email/phone/website, §18.2), a physical location for
+IN_PERSON/HYBRID and configured online access for ONLINE/HYBRID (§14), and — for paid events —
+a billable company + usable payment capability. Response `200` or `409` if guards fail.
 Publishing is **one-way** — there is no unpublish; use `cancel` to take an event down.
 
 ### `POST /api/v1/events/{id}/cancel` — cancel · `ORGANIZER`
@@ -286,6 +289,7 @@ non-participants get `404`, insufficient role `403`.
 - `GET  /api/v1/events/{id}/publication-readiness` — structured violation checklist
 - `GET/PUT /api/v1/events/{id}/settings` — age / entry / country restriction / rules
 - `GET/PUT /api/v1/events/{id}/online-access` — ONLINE/HYBRID join config
+- `GET/PUT /api/v1/events/{id}/contact` — contact + social links (§18); PUT fully replaces the block. At least one of email/phone/website is required to publish (§18.2)
 - `GET  /api/v1/events/{id}/audit` — immutable audit history (paged)
 - `PUT  /api/v1/admin/events/{id}/auto-complete-grace` — ADMIN: override per-event auto-completion grace (`{ "graceHours": 24 }`, null = default). Ended PUBLISHED events auto-complete after `endsAt` + grace.
 - `POST /api/v1/events/{id}/archive` · `/unarchive` — owner/manager/admin: retire/restore an event. `GET /api/v1/events` hides archived by default; `?includeArchived=true` includes them (reporting/history).

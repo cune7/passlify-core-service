@@ -35,6 +35,7 @@ class EventPrivateAccessIntegrationTest extends AbstractIntegrationTest {
     @Autowired EventAccessService accessService;
     @Autowired PublicCatalogService catalog;
     @Autowired CheckoutService checkoutService;
+    @Autowired EventContactService contactService;
     @Autowired MockMvc mvc;
 
     private UUID eventId;
@@ -84,13 +85,15 @@ class EventPrivateAccessIntegrationTest extends AbstractIntegrationTest {
         Instant start = Instant.now().plus(30, ChronoUnit.DAYS);
         Event event = eventService.create(new CreateEventRequest(
                 "Private Fest", null, null, start, start.plus(4, ChronoUnit.HOURS),
-                "Europe/Belgrade", null, null, null, null, null, 500, List.of(),
+                "Europe/Belgrade", null, null, null, null,
+                com.passlify.core.support.EventFixtures.TEST_LOCATION, 500, List.of(),
                 "RSD", Visibility.PRIVATE, null));
         eventId = event.getId();
         slug = event.getSlug();
         TicketType tt = ticketTypeService.create(eventId, new CreateTicketTypeRequest(
                 "Free", null, 0L, null, 100, null, null, null, null, null, null, null, null));
         ticketTypeId = tt.getId();
+        com.passlify.core.support.EventFixtures.addContact(contactService, eventId);
         eventService.publish(eventId);
     }
 

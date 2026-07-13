@@ -30,7 +30,7 @@ custom attendee-form fields, an organizer dashboard, and an organization/company
   per-event admin grace override); slug redirects; schedule-change notifications; event
   archival; private-event access grants. Migrations V15–V18.
 
-Test coverage: 96 tests (unit + Testcontainers-Postgres integration), all green.
+Test coverage: 100 tests (unit + Testcontainers-Postgres integration), all green.
 
 ---
 
@@ -57,6 +57,7 @@ Test coverage: 96 tests (unit + Testcontainers-Postgres integration), all green.
 - ✅ `GET /{id}/publication-readiness` — structured violation checklist (name, type, location/online per mode, contact, tickets, paid company+provider, capacity).
 - ✅ `GET/PUT /{id}/settings` — age, entry, country restriction (hard-reject when empty), rules (§20).
 - ✅ `GET/PUT /{id}/online-access` — join URL/instructions for ONLINE/HYBRID (§14.5).
+- ✅ `GET/PUT /{id}/contact` — event contact + social links (§18); PUT fully replaces the block, http(s) URLs validated. Publish is hard-gated (§18.2/§14): needs ≥1 contact method, a physical location for IN_PERSON/HYBRID, and configured online access for ONLINE/HYBRID.
 - ✅ Immutable audit trail (`EventAuditEntry`, JSON diff) + `GET /{id}/audit`; domain events published for cross-module reactions.
 - ✅ Schedule-change notifications (§16.3): editing a **published** event's date or venue emits `EventDomainEvent.ScheduleChanged` (+ `SCHEDULE_CHANGED` audit); a `@TransactionalEventListener` emails all ticket holders (best-effort). DRAFT edits don't notify.
 - ✅ Paid events gated on a complete `COMPANY` organization (see `organization-domain-model`).
@@ -122,6 +123,6 @@ Test coverage: 96 tests (unit + Testcontainers-Postgres integration), all green.
 ## Notable gaps / next candidates
 1. 🟡 **Raiffeisen (UPC) go-live** — gateway implemented against the UPC e-Commerce Connect Gateway spec (RSA-SHA1 `UpcSignature`, ordered datafiles) + config-gated + unit-tested; needs merchant test-env credentials (MerchantID + keys) to verify redirect + NOTIFY callback end-to-end (task #11 open).
 2. 🟡 **Stripe live verification** — gateway built + config-gated; verify end-to-end with Stripe test-mode keys (Checkout redirect + real webhooks) (task #12 open).
-3. ⏳ Publish-time enforcement of contact/location (currently advisory in readiness; pending contact-editing DTOs). Exact §19.1 category catalog is a reference-data follow-up.
+3. ⏳ Exact §19.1 event-category catalog is a reference-data follow-up (the `event_type` hierarchy plumbing exists; the real category rows are not yet seeded).
 4. ⏳ PIB check-digit validation (needs real known-good PIBs first — see `organization-domain-model`).
 5. ⏳ Still deferred by design: coupons/discounts, tax/VAT, multi-day/season passes, seat selection, ticket transfer/resale, organizer payouts (Stripe Connect). Schema hooks exist for most (see `SCOPE.md`).

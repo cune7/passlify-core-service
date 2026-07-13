@@ -41,6 +41,9 @@ class AttendeeCustomFieldIntegrationTest extends AbstractIntegrationTest {
     EventService eventService;
 
     @Autowired
+    com.passlify.core.event.EventContactService contactService;
+
+    @Autowired
     TicketTypeService ticketTypeService;
 
     @Autowired
@@ -126,7 +129,8 @@ class AttendeeCustomFieldIntegrationTest extends AbstractIntegrationTest {
         Instant start = Instant.now().plus(20, ChronoUnit.DAYS);
         Event event = eventService.create(new CreateEventRequest(
                 "Conf 2026", "desc", null, start, start.plus(8, ChronoUnit.HOURS),
-                "Europe/Belgrade", null, null, null, null, null, 500, List.of(),
+                "Europe/Belgrade", null, null, null, null,
+                com.passlify.core.support.EventFixtures.TEST_LOCATION, 500, List.of(),
                 "RSD", Visibility.PUBLIC, null));
 
         customFieldService.create(event.getId(), new CreateCustomFieldRequest(
@@ -138,6 +142,7 @@ class AttendeeCustomFieldIntegrationTest extends AbstractIntegrationTest {
         TicketType tt = ticketTypeService.create(event.getId(), new CreateTicketTypeRequest(
                 "Workshop", null, 0L, null, 100, null, null, null, null, null, null,
                 AttendeeDataMode.EACH_TICKET, 0));
+        com.passlify.core.support.EventFixtures.addContact(contactService, event.getId());
         eventService.publish(event.getId());
         return tt;
     }

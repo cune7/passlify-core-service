@@ -38,6 +38,9 @@ class EventLifecycleIntegrationTest extends AbstractIntegrationTest {
     @Autowired
     OrganizationService organizationService;
 
+    @Autowired
+    EventContactService contactService;
+
     @AfterEach
     void clearAuth() {
         SecurityContextHolder.clearContext();
@@ -73,6 +76,7 @@ class EventLifecycleIntegrationTest extends AbstractIntegrationTest {
         organizationService.upsertMine(new UpsertOrganizationRequest(
                 OrganizationKind.COMPANY, "Org One d.o.o.", "Org One d.o.o.",
                 "123456789", "21234567", "Savska 5", "Belgrade", "11000", "RS", null, null, null));
+        com.passlify.core.support.EventFixtures.addContact(contactService, eventId);
 
         assertThat(eventService.publish(eventId).getStatus()).isEqualTo(EventStatus.PUBLISHED);
         assertThat(eventService.complete(eventId).getStatus()).isEqualTo(EventStatus.COMPLETED);
@@ -110,7 +114,8 @@ class EventLifecycleIntegrationTest extends AbstractIntegrationTest {
     private CreateEventRequest paidEvent(String name) {
         Instant start = Instant.now().plus(30, ChronoUnit.DAYS);
         return new CreateEventRequest(name, null, null, start, start.plus(4, ChronoUnit.HOURS),
-                "Europe/Belgrade", null, CommercialMode.PAID, null, null, null, 500, List.of(),
+                "Europe/Belgrade", null, CommercialMode.PAID, null, null,
+                com.passlify.core.support.EventFixtures.TEST_LOCATION, 500, List.of(),
                 "RSD", Visibility.PUBLIC, PaymentProvider.MOCK);
     }
 

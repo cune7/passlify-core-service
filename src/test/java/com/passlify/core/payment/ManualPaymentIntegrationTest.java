@@ -42,6 +42,7 @@ class ManualPaymentIntegrationTest extends AbstractIntegrationTest {
     @Autowired CheckoutService checkoutService;
     @Autowired PaymentService paymentService;
     @Autowired OrderRepository orders;
+    @Autowired com.passlify.core.event.EventContactService contactService;
 
     @AfterEach
     void clearAuth() {
@@ -118,10 +119,12 @@ class ManualPaymentIntegrationTest extends AbstractIntegrationTest {
         Instant start = Instant.now().plus(30, ChronoUnit.DAYS);
         UUID eventId = eventService.create(new CreateEventRequest(
                 "Manual Fest", null, null, start, start.plus(4, ChronoUnit.HOURS),
-                "Europe/Belgrade", null, CommercialMode.PAID, null, null, null, 500, List.of(),
+                "Europe/Belgrade", null, CommercialMode.PAID, null, null,
+                com.passlify.core.support.EventFixtures.TEST_LOCATION, 500, List.of(),
                 "RSD", Visibility.PUBLIC, PaymentProvider.MANUAL)).getId();
         TicketType tt = ticketTypeService.create(eventId, new CreateTicketTypeRequest(
                 "Regular", null, 250_000L, null, 100, null, null, null, null, null, null, null, null));
+        com.passlify.core.support.EventFixtures.addContact(contactService, eventId);
         eventService.publish(eventId);
 
         Order order = checkoutService.createOrder(new CreateOrderRequest(

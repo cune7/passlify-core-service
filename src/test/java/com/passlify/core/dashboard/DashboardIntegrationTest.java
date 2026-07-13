@@ -57,6 +57,9 @@ class DashboardIntegrationTest extends AbstractIntegrationTest {
     @Autowired
     OrganizationService organizationService;
 
+    @Autowired
+    com.passlify.core.event.EventContactService contactService;
+
     @AfterEach
     void clearAuth() {
         SecurityContextHolder.clearContext();
@@ -71,6 +74,7 @@ class DashboardIntegrationTest extends AbstractIntegrationTest {
         organizationService.upsertMine(new UpsertOrganizationRequest(
                 OrganizationKind.COMPANY, "Org One d.o.o.", "Org One d.o.o.",
                 "123456789", "21234567", "Savska 5", "Belgrade", "11000", "RS", null, null, null));
+        com.passlify.core.support.EventFixtures.addContact(contactService, event.getId());
         eventService.publish(event.getId());
 
         Order order = checkoutService.createOrder(orderFor(tt));
@@ -117,7 +121,8 @@ class DashboardIntegrationTest extends AbstractIntegrationTest {
         Instant start = Instant.now().plus(30, ChronoUnit.DAYS);
         return new CreateEventRequest(
                 "Dash Fest", "desc", null, start, start.plus(4, ChronoUnit.HOURS),
-                "Europe/Belgrade", null, CommercialMode.PAID, null, null, null, 500,
+                "Europe/Belgrade", null, CommercialMode.PAID, null, null,
+                com.passlify.core.support.EventFixtures.TEST_LOCATION, 500,
                 List.of(), "RSD", Visibility.PUBLIC, PaymentProvider.MOCK);
     }
 

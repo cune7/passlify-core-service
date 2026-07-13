@@ -42,6 +42,9 @@ class EventPaymentCapabilityIntegrationTest extends AbstractIntegrationTest {
     @Autowired
     PaymentCapabilityService capabilities;
 
+    @Autowired
+    EventContactService contactService;
+
     @AfterEach
     void clearAuth() {
         SecurityContextHolder.clearContext();
@@ -63,6 +66,7 @@ class EventPaymentCapabilityIntegrationTest extends AbstractIntegrationTest {
                 PaymentProvider.STRIPE, List.of("RSD"), null, null, "acct_test"));
 
         assertThat(codes(eventId)).doesNotContain("PAYMENT_PROVIDER_NOT_APPROVED", "CURRENCY_NOT_SUPPORTED");
+        com.passlify.core.support.EventFixtures.addContact(contactService, eventId);
         assertThat(eventService.publish(eventId).getStatus()).isEqualTo(EventStatus.PUBLISHED);
     }
 
@@ -100,7 +104,8 @@ class EventPaymentCapabilityIntegrationTest extends AbstractIntegrationTest {
     private CreateEventRequest stripeEvent(String currency) {
         Instant start = Instant.now().plus(30, ChronoUnit.DAYS);
         return new CreateEventRequest("Stripe Fest", null, null, start, start.plus(4, ChronoUnit.HOURS),
-                "Europe/Belgrade", null, CommercialMode.PAID, null, null, null, 500, List.of(),
+                "Europe/Belgrade", null, CommercialMode.PAID, null, null,
+                com.passlify.core.support.EventFixtures.TEST_LOCATION, 500, List.of(),
                 currency, Visibility.PUBLIC, PaymentProvider.STRIPE);
     }
 

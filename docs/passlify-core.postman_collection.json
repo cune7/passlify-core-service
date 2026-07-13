@@ -454,6 +454,36 @@
           }
         },
         {
+          "name": "Get event contact",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/events/{{eventId}}/contact",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "events", "{{eventId}}", "contact"]
+            },
+            "description": "Event contact + social links (§18)."
+          }
+        },
+        {
+          "name": "Update event contact",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"hello@fest.rs\",\n  \"phone\": \"+381600000000\",\n  \"websiteUrl\": \"https://fest.rs\",\n  \"facebookUrl\": \"https://facebook.com/fest\",\n  \"instagramUrl\": null,\n  \"showEmail\": true,\n  \"showPhone\": false,\n  \"showWebsite\": true,\n  \"showSocial\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/events/{{eventId}}/contact",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "events", "{{eventId}}", "contact"]
+            },
+            "description": "Full replace of the contact block (§18). URL fields must be absolute http(s). At least one of email/phone/website is required before the event can publish (§18.2)."
+          }
+        },
+        {
           "name": "Event audit trail",
           "request": {
             "method": "GET",

@@ -37,6 +37,9 @@ class EventServiceIntegrationTest extends AbstractIntegrationTest {
     @Autowired
     OrganizationService organizationService;
 
+    @Autowired
+    EventContactService contactService;
+
     @AfterEach
     void clearAuth() {
         SecurityContextHolder.clearContext();
@@ -67,6 +70,7 @@ class EventServiceIntegrationTest extends AbstractIntegrationTest {
         ticketTypeService.create(event.getId(), new CreateTicketTypeRequest(
                 "Regular", null, 250_000L, null, 100, null, null, null, null, null, null, null, null));
         makeCompany();
+        com.passlify.core.support.EventFixtures.addContact(contactService, event.getId());
 
         Event published = eventService.publish(event.getId());
         assertThat(published.getStatus()).isEqualTo(EventStatus.PUBLISHED);
@@ -95,7 +99,8 @@ class EventServiceIntegrationTest extends AbstractIntegrationTest {
         Instant start = Instant.now().plus(30, ChronoUnit.DAYS);
         return new CreateEventRequest(
                 name, "desc", null, start, start.plus(4, ChronoUnit.HOURS),
-                "Europe/Belgrade", null, CommercialMode.PAID, null, null, null, 500,
+                "Europe/Belgrade", null, CommercialMode.PAID, null, null,
+                com.passlify.core.support.EventFixtures.TEST_LOCATION, 500,
                 List.of("test"), "RSD", Visibility.PUBLIC, PaymentProvider.MOCK);
     }
 

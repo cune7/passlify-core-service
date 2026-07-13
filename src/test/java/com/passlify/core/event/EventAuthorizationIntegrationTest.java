@@ -35,6 +35,9 @@ class EventAuthorizationIntegrationTest extends AbstractIntegrationTest {
     @Autowired
     TicketTypeService ticketTypeService;
 
+    @Autowired
+    EventContactService contactService;
+
     @AfterEach
     void clearAuth() {
         SecurityContextHolder.clearContext();
@@ -72,6 +75,7 @@ class EventAuthorizationIntegrationTest extends AbstractIntegrationTest {
         UUID eventId = eventService.create(event()).getId();
         ticketTypeService.create(eventId, new CreateTicketTypeRequest(
                 "Free", null, 0L, null, 100, null, null, null, null, null, null, null, null));
+        com.passlify.core.support.EventFixtures.addContact(contactService, eventId);
         inviteAndAccept(eventId, "manager@x.rs", "user-manager", EventRole.MANAGER);
 
         authenticate("user-manager", "manager@x.rs", "ORGANIZER");
@@ -102,7 +106,8 @@ class EventAuthorizationIntegrationTest extends AbstractIntegrationTest {
     private CreateEventRequest event() {
         Instant start = Instant.now().plus(30, ChronoUnit.DAYS);
         return new CreateEventRequest("Authz Fest", null, null, start, start.plus(4, ChronoUnit.HOURS),
-                "Europe/Belgrade", null, null, null, null, null, 500, List.of(),
+                "Europe/Belgrade", null, null, null, null,
+                com.passlify.core.support.EventFixtures.TEST_LOCATION, 500, List.of(),
                 "RSD", Visibility.PUBLIC, null);
     }
 

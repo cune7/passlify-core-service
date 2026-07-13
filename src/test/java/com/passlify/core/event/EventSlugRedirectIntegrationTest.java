@@ -28,6 +28,7 @@ class EventSlugRedirectIntegrationTest extends AbstractIntegrationTest {
     @Autowired EventService eventService;
     @Autowired TicketTypeService ticketTypeService;
     @Autowired PublicCatalogService catalog;
+    @Autowired EventContactService contactService;
     @Autowired MockMvc mvc;
 
     @AfterEach
@@ -69,10 +70,12 @@ class EventSlugRedirectIntegrationTest extends AbstractIntegrationTest {
         Instant start = Instant.now().plus(30, ChronoUnit.DAYS);
         UUID eventId = eventService.create(new CreateEventRequest(
                 "Slug Fest", null, null, start, start.plus(4, ChronoUnit.HOURS),
-                "Europe/Belgrade", null, null, null, null, null, 500, List.of(),
+                "Europe/Belgrade", null, null, null, null,
+                com.passlify.core.support.EventFixtures.TEST_LOCATION, 500, List.of(),
                 "RSD", Visibility.PUBLIC, null)).getId();
         ticketTypeService.create(eventId, new CreateTicketTypeRequest(
                 "Free", null, 0L, null, 100, null, null, null, null, null, null, null, null));
+        com.passlify.core.support.EventFixtures.addContact(contactService, eventId);
         eventService.publish(eventId);
         return eventId;
     }
