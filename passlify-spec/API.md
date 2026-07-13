@@ -56,7 +56,7 @@ Response `201`: full `EventResponse` (see §schemas). `slug` auto-generated, `st
 Response `200`: `EventResponse`.
 
 ### `PATCH /api/v1/events/{id}` — update · `ORGANIZER`
-Partial body of the create fields. `slug` immutable once `PUBLISHED`. Response `200`.
+Partial body of the create fields. `slug` is editable; renaming a published event records a redirect so old links keep working (see §3). Response `200`.
 
 ### `POST /api/v1/events/{id}/publish` — publish · `ORGANIZER`
 Guards (DOMAIN §2.3): ≥1 active ticket type, `startsAt` in future. Response `200` or `409` if guards fail.
@@ -106,7 +106,8 @@ Only `status=PUBLISHED` + `visibility=PUBLIC`. Response `200`: `Page<PublicEvent
 
 ### `GET /api/v1/public/events/{slug}` — public event detail
 Response `200`: `PublicEventDetail` (event + sellable ticket types with `availableQuantity`,
-`priceMinor`, sale window). `404` if not public/published.
+`priceMinor`, sale window). A **retired slug** (after a rename) returns **`301`** with
+`Location` to the current slug. `404` if not public/published.
 
 ---
 

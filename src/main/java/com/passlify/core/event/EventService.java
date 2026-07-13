@@ -40,6 +40,7 @@ public class EventService {
     private static final SecureRandom RANDOM = new SecureRandom();
 
     private final EventRepository events;
+    private final EventSlugRedirectRepository slugRedirects;
     private final EventTypeRepository eventTypes;
     private final LocationRepository locations;
     private final OrganizationService organizations;
@@ -66,6 +67,7 @@ public class EventService {
                         EventPublicationReadinessValidator readiness,
                         EventCollaboratorService collaborators,
                         EventAuthorization authorization,
+                        EventSlugRedirectRepository slugRedirects,
                         ApplicationEventPublisher domainEvents,
                         @Value("${passlify.default-currency:RSD}") String defaultCurrency) {
         this.events = events;
@@ -80,6 +82,7 @@ public class EventService {
         this.readiness = readiness;
         this.collaborators = collaborators;
         this.authorization = authorization;
+        this.slugRedirects = slugRedirects;
         this.domainEvents = domainEvents;
         this.defaultCurrency = defaultCurrency;
     }
@@ -374,15 +377,30 @@ public class EventService {
     }
 
     /** Slug may only change while DRAFT (§5.3); normalized and checked for uniqueness. */
+    /**
+     * Changes the slug (allowed in any state, §5.3). For a non-DRAFT event the old slug
+     * may already be shared, so it's recorded as a redirect to keep old links working.
+     */
     private void applySlugChange(Event e, String requestedSlug) {
-        if (e.getStatus() != EventStatus.DRAFT) {
-            throw ApiException.invalidState("Slug can only be changed while the event is a draft");
+        String newSlug = slugify(requestedSlug);
+        String oldSlug = e.getSlug();
+        if (newSlug.equals(oldSlug)) {
+            return;
         }
-        String slug = slugify(requestedSlug);
-        if (!slug.equals(e.getSlug()) && events.existsBySlug(slug)) {
-            throw ApiException.of(ErrorCode.CONFLICT, "Slug already in use: " + slug);
+        if (events.existsBySlug(newSlug)) {
+            throw ApiException.of(ErrorCode.CONFLICT, "Slug already in use: " + newSlug);
         }
-        e.setSlug(slug);
+        // The new slug is going live — retire any stale redirect that used it.
+        slugRedirects.findByOldSlug(newSlug).ifPresent(slugRedirects::delete);
+        // Keep old links working once the slug has been public (i.e. beyond DRAFT).
+        if (oldSlug != null && e.getStatus() != EventStatus.DRAFT) {
+            EventSlugRedirect redirect = slugRedirects.findByOldSlug(oldSlug)
+                    .orElseGet(EventSlugRedirect::new);
+            redirect.setOldSlug(oldSlug);
+            redirect.setEventId(e.getId());
+            slugRedirects.save(redirect);
+        }
+        e.setSlug(newSlug);
     }
 
     private EventType resolveEventType(UUID eventTypeId) {

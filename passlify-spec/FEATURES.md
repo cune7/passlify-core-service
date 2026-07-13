@@ -25,7 +25,7 @@ custom attendee-form fields, an organizer dashboard, and an organization/company
   Raiffeisen gateway 🟡 config-gated + unit-tested but unverified against the bank; real Stripe
   SDK ⏳ pending. Migration V12.
 - **Phase 4 — Advanced lifecycle 🟡 in progress.** ✅ automated completion (scheduled sweep,
-  per-event admin grace override). Remaining: slug redirects, attendee schedule-change
+  per-event admin grace override); ✅ slug redirects. Remaining: attendee schedule-change
   notifications, private-event invitations, event archival.
 
 Test coverage: 68 tests (unit + Testcontainers-Postgres integration), all green.
@@ -46,7 +46,7 @@ Test coverage: 68 tests (unit + Testcontainers-Postgres integration), all green.
 
 ## Events  `com.passlify.core.event`  *(EVENT_DOMAIN_SPEC Phases 1–2 built)*
 - ✅ CRUD (organizer-scoped): `POST /api/v1/events`, `GET /{id}`, `GET` (list), `PATCH /{id}` (optimistic `version` → 409 on stale edit).
-- ✅ Identity: immutable ULID `publicId` + human `slug` (DRAFT-only slug edits). Mandatory IANA `timezone`.
+- ✅ Identity: immutable ULID `publicId` + human `slug` (editable any time; a retired published slug 301s to the current one via `EventSlugRedirect`, V16). Mandatory IANA `timezone`.
 - ✅ Explicit `AttendanceMode` (IN_PERSON/ONLINE/HYBRID) and `CommercialMode` (FREE/PAID); `Visibility` PUBLIC/UNLISTED/PRIVATE.
 - ✅ Sanitized rich-text `descriptionHtml` (+ plain-text projection); embedded event contact/social links.
 - ✅ Lifecycle: `POST /{id}/publish` (one-way — no unpublish), `/cancel` (reason required), `/complete`. `EventStatus`: DRAFT · PUBLISHED · CANCELLED · COMPLETED.

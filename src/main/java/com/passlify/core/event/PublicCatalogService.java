@@ -16,12 +16,18 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class PublicCatalogService {
 
+    private static final java.util.List<Visibility> LINKABLE =
+            java.util.List.of(Visibility.PUBLIC, Visibility.UNLISTED);
+
     private final EventRepository events;
     private final TicketTypeRepository ticketTypes;
+    private final EventSlugRedirectRepository slugRedirects;
 
-    public PublicCatalogService(EventRepository events, TicketTypeRepository ticketTypes) {
+    public PublicCatalogService(EventRepository events, TicketTypeRepository ticketTypes,
+                                EventSlugRedirectRepository slugRedirects) {
         this.events = events;
         this.ticketTypes = ticketTypes;
+        this.slugRedirects = slugRedirects;
     }
 
     @Transactional(readOnly = true)
@@ -42,9 +48,25 @@ public class PublicCatalogService {
 
     @Transactional(readOnly = true)
     public Event getPublishedBySlug(String slug) {
-        return events.findBySlugAndStatusAndVisibilityIn(slug, EventStatus.PUBLISHED,
-                        java.util.List.of(Visibility.PUBLIC, Visibility.UNLISTED))
+        return findPublishedBySlug(slug)
                 .orElseThrow(() -> ApiException.notFound("Event not found: " + slug));
+    }
+
+    @Transactional(readOnly = true)
+    public java.util.Optional<Event> findPublishedBySlug(String slug) {
+        return events.findBySlugAndStatusAndVisibilityIn(slug, EventStatus.PUBLISHED, LINKABLE);
+    }
+
+    /**
+     * If {@code oldSlug} is a retired slug of a still-published event, the event's current
+     * slug (for a 301). Empty if there's no redirect or the target is no longer public.
+     */
+    @Transactional(readOnly = true)
+    public java.util.Optional<String> findRedirectTargetSlug(String oldSlug) {
+        return slugRedirects.findByOldSlug(oldSlug)
+                .flatMap(r -> events.findById(r.getEventId()))
+                .filter(e -> e.getStatus() == EventStatus.PUBLISHED && LINKABLE.contains(e.getVisibility()))
+                .map(Event::getSlug);
     }
 
     /** Publicly visible ticket types for an event (active + PUBLIC visibility). */

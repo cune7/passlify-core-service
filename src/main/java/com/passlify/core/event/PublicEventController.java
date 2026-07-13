@@ -1,14 +1,19 @@
 package com.passlify.core.event;
 
+import com.passlify.core.common.error.ApiException;
 import com.passlify.core.event.dto.PublicEventDetail;
 import com.passlify.core.event.dto.PublicEventSummary;
 import com.passlify.core.forms.CustomFieldService;
+import java.net.URI;
 import java.time.Instant;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -40,11 +45,20 @@ public class PublicEventController {
     }
 
     @GetMapping("/{slug}")
-    public PublicEventDetail detail(@PathVariable String slug) {
-        Event event = catalog.getPublishedBySlug(slug);
-        return PublicEventDetail.from(
-                event,
-                catalog.publicTicketTypes(event.getId()),
-                customFieldService.publicList(event.getId()));
+    public ResponseEntity<PublicEventDetail> detail(@PathVariable String slug) {
+        Optional<Event> current = catalog.findPublishedBySlug(slug);
+        if (current.isPresent()) {
+            Event event = current.get();
+            return ResponseEntity.ok(PublicEventDetail.from(
+                    event,
+                    catalog.publicTicketTypes(event.getId()),
+                    customFieldService.publicList(event.getId())));
+        }
+        // A retired slug → permanent redirect to the event's current slug.
+        return catalog.findRedirectTargetSlug(slug)
+                .map(newSlug -> ResponseEntity.status(HttpStatus.MOVED_PERMANENTLY)
+                        .location(URI.create("/api/v1/public/events/" + newSlug))
+                        .<PublicEventDetail>build())
+                .orElseThrow(() -> ApiException.notFound("Event not found: " + slug));
     }
 }
